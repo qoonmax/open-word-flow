@@ -7,7 +7,7 @@ application.
 
 ## Build and install
 
-Requirements: macOS 13 or later on Apple Silicon, Go, the Xcode Command Line
+Requirements: macOS 26 or later on Apple Silicon, Go, the Xcode Command Line
 Tools, and CMake. whisper.cpp is a git submodule, built as static libraries
 under `third_party/whisper.cpp/build_go`:
 
@@ -48,10 +48,12 @@ whisper reads the vocabulary as text spoken right before the recording, which
 favors those spellings. Changes apply to the next recording. **Quit** finishes
 an active recording without transcribing it.
 
-While recording, a black Dynamic Island–style indicator grows out of the
-MacBook notch with a pulsing red dot and live microphone level bars, and folds
-back into the notch when recording stops. On a screen without a notch it grows
-from the top center of the main screen.
+While recording, a black island grows out of the MacBook notch, continuing
+it, with a red dot and a timer left of the camera and a gradient voice wave
+right of it. A Siri-like glow lights the island from behind and swells as you
+speak. After you stop, the wave rolls and the glow breathes while whisper
+transcribes; the island folds back into the notch once the text is pasted. On
+a screen without a notch it grows from the top center.
 
 ## macOS Fn settings
 

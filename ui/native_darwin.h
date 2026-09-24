@@ -5,6 +5,7 @@ void owf_ui_run(void);
 void owf_ui_stop(void);
 void owf_ui_alert(const char *message);
 void owf_ui_show(void);
+void owf_ui_processing(void);
 void owf_ui_hide(void);
 void owf_ui_set_level(double level);
 char *owf_settings_language(void);

@@ -87,12 +87,14 @@ func run() error {
 				return nil
 			}
 
-			ui.Hide()
+			ui.Processing()
 			fmt.Printf("Recording stopped. Saved: %s\n", event.Path)
 
 			if dictateErr := dictate(transcriber, event.Path); dictateErr != nil {
 				fmt.Fprintln(os.Stderr, "error:", dictateErr)
 			}
+
+			ui.Hide()
 
 			return nil
 		})

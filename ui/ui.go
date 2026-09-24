@@ -4,7 +4,7 @@ package ui
 
 /*
 #cgo darwin CFLAGS: -fblocks
-#cgo darwin LDFLAGS: -framework AppKit -framework QuartzCore
+#cgo darwin LDFLAGS: -framework AppKit -framework CoreImage -framework QuartzCore
 #include "native_darwin.h"
 #include <stdlib.h>
 */
@@ -80,6 +80,13 @@ func Show(level func() float64) {
 			}
 		}
 	}()
+}
+
+// Processing shows that recording has stopped and transcription is running,
+// until Hide.
+func Processing() {
+	stopLevelUpdates()
+	C.owf_ui_processing()
 }
 
 // Hide collapses the indicator back into the notch.
