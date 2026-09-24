@@ -214,7 +214,7 @@ static CALayer *owf_new_layer(CGColorRef color, CGFloat width, CGFloat height) {
     return layer;
 }
 
-static void owf_setup(void) {
+void owf_island_setup(void) {
     owf_panel = [[OWFPanel alloc]
         initWithContentRect:NSZeroRect
                   styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
@@ -259,34 +259,6 @@ static void owf_setup(void) {
             CGColorGetConstantColor(kCGColorWhite), owf_bar_width, owf_bar_min_height
         );
     }
-}
-
-void owf_ui_run(void) {
-    @autoreleasepool {
-        [NSApplication sharedApplication];
-        // No Dock icon or menu bar, and never takes focus from the app that receives the paste.
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
-        owf_setup();
-        [NSApp run];
-    }
-}
-
-void owf_ui_stop(void) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [NSApp stop:nil];
-
-        // stop: takes effect after the next event, so post one.
-        NSEvent *event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
-                                            location:NSZeroPoint
-                                       modifierFlags:0
-                                           timestamp:0
-                                        windowNumber:0
-                                             context:nil
-                                             subtype:0
-                                               data1:0
-                                               data2:0];
-        [NSApp postEvent:event atStart:YES];
-    });
 }
 
 void owf_ui_show(void) {

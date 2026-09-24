@@ -3,9 +3,25 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.openwordflow.cli</string>
+	<string>com.openwordflow.app</string>
 	<key>CFBundleName</key>
 	<string>Open Word Flow</string>
+	<key>CFBundleDisplayName</key>
+	<string>Open Word Flow</string>
+	<key>CFBundleExecutable</key>
+	<string>open-word-flow</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Open Word Flow records voice clips from the microphone when you double-press the Fn key.</string>
 </dict>

@@ -24,7 +24,6 @@ type (
 	// create one Context per Transcribe call.
 	Transcriber struct {
 		model        whisper.Model
-		language     string
 		vadModelPath string
 	}
 )
@@ -45,7 +44,6 @@ func New(cfg config.Transcriber) (*Transcriber, error) {
 
 	return &Transcriber{
 		model:        model,
-		language:     cfg.Language,
 		vadModelPath: cfg.VADModelPath,
 	}, nil
 }
@@ -55,16 +53,22 @@ func (t *Transcriber) Close() error {
 	return t.model.Close()
 }
 
-// Transcribe recognizes speech in samples (16 kHz mono, [-1,1]).
-// onSegment, if non-nil, is called as each segment is decoded.
-func (t *Transcriber) Transcribe(samples []float32, onSegment func(Segment)) ([]Segment, error) {
+// Transcribe recognizes speech in samples (16 kHz mono, [-1,1]). language is
+// "auto" or an ISO 639-1 code such as "ru". prompt, if not empty, is text that
+// whisper treats as speech preceding the recording, which biases spelling and
+// vocabulary toward it.
+func (t *Transcriber) Transcribe(samples []float32, language, prompt string) ([]Segment, error) {
 	ctx, err := t.model.NewContext()
 	if err != nil {
 		return nil, fmt.Errorf("new context: %w", err)
 	}
 
-	if err := ctx.SetLanguage(t.language); err != nil {
-		return nil, fmt.Errorf("set language %q: %w", t.language, err)
+	if err := ctx.SetLanguage(language); err != nil {
+		return nil, fmt.Errorf("set language %q: %w", language, err)
+	}
+
+	if prompt != "" {
+		ctx.SetInitialPrompt(prompt)
 	}
 
 	if t.vadModelPath != "" {
@@ -72,14 +76,7 @@ func (t *Transcriber) Transcribe(samples []float32, onSegment func(Segment)) ([]
 		ctx.SetVADModelPath(t.vadModelPath)
 	}
 
-	var cb whisper.SegmentCallback
-	if onSegment != nil {
-		cb = func(s whisper.Segment) {
-			onSegment(Segment{Start: s.Start, End: s.End, Text: s.Text})
-		}
-	}
-
-	if err := ctx.Process(samples, nil, cb, nil); err != nil {
+	if err := ctx.Process(samples, nil, nil, nil); err != nil {
 		return nil, fmt.Errorf("process: %w", err)
 	}
 

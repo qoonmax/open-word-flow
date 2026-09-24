@@ -1,18 +1,28 @@
-// Package ui shows a recording indicator that grows out of the MacBook notch,
-// like the iPhone Dynamic Island.
+// Package ui runs the menu bar app: its Settings window and a recording
+// indicator that grows out of the MacBook notch, like the iPhone Dynamic Island.
 package ui
 
 /*
 #cgo darwin CFLAGS: -fblocks
 #cgo darwin LDFLAGS: -framework AppKit -framework QuartzCore
 #include "native_darwin.h"
+#include <stdlib.h>
 */
 import "C"
 
 import (
 	"context"
 	"time"
+	"unsafe"
 )
+
+// Preferences are the options set in the Settings window.
+type Preferences struct {
+	// Language is "auto" or an ISO 639-1 code such as "ru".
+	Language string
+	// Vocabulary lists words and phrases that transcription should favor.
+	Vocabulary string
+}
 
 const levelInterval = time.Second / 30
 
@@ -30,6 +40,22 @@ func Run(ctx context.Context) {
 	}()
 
 	C.owf_ui_run()
+}
+
+// Alert shows message in a modal dialog; a Finder-launched app has no terminal.
+func Alert(message string) {
+	cMessage := C.CString(message)
+	defer C.free(unsafe.Pointer(cMessage))
+
+	C.owf_ui_alert(cMessage)
+}
+
+// LoadPreferences reads the current settings, so changes apply without a restart.
+func LoadPreferences() Preferences {
+	return Preferences{
+		Language:   takeString(C.owf_settings_language()),
+		Vocabulary: takeString(C.owf_settings_vocabulary()),
+	}
 }
 
 // Show expands the indicator out of the notch and animates it with level,
@@ -67,4 +93,10 @@ func stopLevelUpdates() {
 		close(stopLevels)
 		stopLevels = nil
 	}
+}
+
+func takeString(value *C.char) string {
+	defer C.free(unsafe.Pointer(value))
+
+	return C.GoString(value)
 }

@@ -10,6 +10,7 @@ import "C"
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 )
@@ -45,9 +46,17 @@ func (l *Listener) Run(ctx context.Context, callback func() error) error {
 
 	listener := C.owf_fn_listen()
 	if listener == nil {
-		return errors.New(
-			"listen for Fn key: enable Accessibility or Input Monitoring for Open Word Flow (or the terminal that launched it) in System Settings > Privacy & Security, then restart",
-		)
+		fmt.Println("Waiting for Accessibility or Input Monitoring access to listen for Fn...")
+	}
+
+	// On first launch macOS asks the user; start listening as soon as access is granted.
+	for listener == nil {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second):
+			listener = C.owf_fn_listen()
+		}
 	}
 
 	defer C.owf_fn_close(listener)

@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -18,6 +18,12 @@ import (
 	"open-word-flow/ui"
 )
 
+// Model files, looked up by modelsDir.
+const (
+	modelFile    = "ggml-large-v3-turbo-q5_0.bin"
+	vadModelFile = "ggml-silero-v6.2.0.bin"
+)
+
 func init() {
 	// The ui package runs AppKit, which requires the main thread.
 	runtime.LockOSThread()
@@ -26,29 +32,17 @@ func init() {
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
+		ui.Alert(err.Error())
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	modelPath := flag.String("model", "models/ggml-large-v3-turbo-q5_0.bin", "path to a ggml whisper model")
-	language := flag.String("lang", "auto", "speech language as an ISO 639-1 code such as ru or en, or auto")
-	vadModelPath := flag.String(
-		"vad-model",
-		"models/ggml-silero-v6.2.0.bin",
-		"path to a Silero VAD model that skips silence; empty disables it",
-	)
-
-	flag.Parse()
-
-	if flag.NArg() != 0 {
-		return fmt.Errorf("usage: %s [-model path] [-lang auto] [-vad-model path]", os.Args[0])
-	}
+	models := modelsDir()
 
 	transcriber, err := asr.New(config.Transcriber{
-		ModelPath:    *modelPath,
-		Language:     *language,
-		VADModelPath: *vadModelPath,
+		ModelPath:    filepath.Join(models, modelFile),
+		VADModelPath: filepath.Join(models, vadModelFile),
 	})
 	if err != nil {
 		return err
@@ -130,7 +124,9 @@ func dictate(transcriber *asr.Transcriber, path string) error {
 		return err
 	}
 
-	segments, err := transcriber.Transcribe(samples, nil)
+	prefs := ui.LoadPreferences()
+
+	segments, err := transcriber.Transcribe(samples, prefs.Language, prompt(prefs.Vocabulary))
 	if err != nil {
 		return fmt.Errorf("transcribe %s: %w", path, err)
 	}
@@ -152,4 +148,30 @@ func dictate(transcriber *asr.Transcriber, path string) error {
 	fmt.Println("Transcript:", text)
 
 	return paste.Text(text)
+}
+
+// modelsDir returns Contents/Resources/models inside the app bundle, or
+// ./models when the bare binary runs from the repository.
+func modelsDir() string {
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Join(filepath.Dir(exe), "..", "Resources", "models")
+		if _, err := os.Stat(dir); err == nil {
+			return dir
+		}
+	}
+
+	return "models"
+}
+
+// prompt turns the Settings vocabulary, often one term per line, into whisper prompt text.
+func prompt(vocabulary string) string {
+	var terms []string
+
+	for _, line := range strings.Split(vocabulary, "\n") {
+		if term := strings.TrimSpace(line); term != "" {
+			terms = append(terms, term)
+		}
+	}
+
+	return strings.Join(terms, ", ")
 }
