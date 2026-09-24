@@ -33,14 +33,23 @@ func main() {
 func run() error {
 	modelPath := flag.String("model", "models/ggml-large-v3-turbo-q5_0.bin", "path to a ggml whisper model")
 	language := flag.String("lang", "auto", "speech language as an ISO 639-1 code such as ru or en, or auto")
+	vadModelPath := flag.String(
+		"vad-model",
+		"models/ggml-silero-v6.2.0.bin",
+		"path to a Silero VAD model that skips silence; empty disables it",
+	)
 
 	flag.Parse()
 
 	if flag.NArg() != 0 {
-		return fmt.Errorf("usage: %s [-model path] [-lang auto]", os.Args[0])
+		return fmt.Errorf("usage: %s [-model path] [-lang auto] [-vad-model path]", os.Args[0])
 	}
 
-	transcriber, err := asr.New(config.Transcriber{ModelPath: *modelPath, Language: *language})
+	transcriber, err := asr.New(config.Transcriber{
+		ModelPath:    *modelPath,
+		Language:     *language,
+		VADModelPath: *vadModelPath,
+	})
 	if err != nil {
 		return err
 	}

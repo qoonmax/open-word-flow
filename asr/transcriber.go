@@ -4,6 +4,7 @@ package asr
 import (
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
@@ -22,21 +23,30 @@ type (
 	// Transcriber holds a loaded whisper model. Safe to reuse for many files;
 	// create one Context per Transcribe call.
 	Transcriber struct {
-		model    whisper.Model
-		language string
+		model        whisper.Model
+		language     string
+		vadModelPath string
 	}
 )
 
 // New loads the configured whisper model.
 func New(cfg config.Transcriber) (*Transcriber, error) {
+	// whisper only loads the VAD model on the first transcription; fail at startup instead.
+	if cfg.VADModelPath != "" {
+		if _, err := os.Stat(cfg.VADModelPath); err != nil {
+			return nil, fmt.Errorf("VAD model: %w", err)
+		}
+	}
+
 	model, err := whisper.New(cfg.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("load model %s: %w", cfg.ModelPath, err)
 	}
 
 	return &Transcriber{
-		model:    model,
-		language: cfg.Language,
+		model:        model,
+		language:     cfg.Language,
+		vadModelPath: cfg.VADModelPath,
 	}, nil
 }
 
@@ -55,6 +65,11 @@ func (t *Transcriber) Transcribe(samples []float32, onSegment func(Segment)) ([]
 
 	if err := ctx.SetLanguage(t.language); err != nil {
 		return nil, fmt.Errorf("set language %q: %w", t.language, err)
+	}
+
+	if t.vadModelPath != "" {
+		ctx.SetVAD(true)
+		ctx.SetVADModelPath(t.vadModelPath)
 	}
 
 	var cb whisper.SegmentCallback

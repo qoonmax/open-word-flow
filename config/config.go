@@ -7,4 +7,8 @@ type Transcriber struct {
 	ModelPath string
 	// Language is an ISO 639-1 code such as "ru" or "en", or "auto".
 	Language string
+	// VADModelPath is the path to a ggml Silero VAD model. Voice activity
+	// detection skips silence, where whisper tends to hallucinate text.
+	// Empty disables it.
+	VADModelPath string
 }

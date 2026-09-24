@@ -15,15 +15,19 @@ CMake. whisper.cpp is a git submodule, built as static libraries under
 git submodule update --init
 make whisper
 third_party/whisper.cpp/models/download-ggml-model.sh large-v3-turbo-q5_0 models
+third_party/whisper.cpp/models/download-vad-model.sh silero-v6.2.0 models
 make build
 ./bin/open-word-flow
 ```
 
 By default the model is loaded from `models/ggml-large-v3-turbo-q5_0.bin` and
-the language is auto-detected. Override either:
+the language is auto-detected. Silero voice activity detection
+(`models/ggml-silero-v6.2.0.bin`) drops silence before transcription, so empty
+or near-silent clips paste nothing instead of whisper hallucinations such as
+"Thank you." Override any of them; `-vad-model ""` disables VAD:
 
 ```sh
-./bin/open-word-flow -model path/to/ggml-model.bin -lang ru
+./bin/open-word-flow -model path/to/ggml-model.bin -lang ru -vad-model path/to/vad.bin
 ```
 
 Double-press Fn to start recording and double-press it again to stop (presses
