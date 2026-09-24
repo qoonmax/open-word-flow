@@ -1,0 +1,26 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - decorder
+    - wsl_v5
+  settings:
+    decorder:
+      dec-order:
+        - type
+        - const
+        - var
+        - func
+      disable-dec-order-check: false
+    wsl_v5:
+      default: default
+      enable:
+        - after-block
+
+formatters:
+  enable:
+    - gofmt
