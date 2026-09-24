@@ -33,6 +33,8 @@ static CGEventRef owf_fn_callback(
             listener->event = owf_event_other_key;
         } else if ((CGEventGetFlags(event) & kCGEventFlagMaskSecondaryFn) != 0) {
             listener->event = owf_event_fn_down;
+        } else {
+            listener->event = owf_event_fn_up;
         }
         break;
     default:

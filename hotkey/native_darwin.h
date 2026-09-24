@@ -7,7 +7,8 @@ enum {
     owf_event_error = -1,
     owf_event_none = 0,
     owf_event_fn_down = 1,
-    owf_event_other_key = 2
+    owf_event_other_key = 2,
+    owf_event_fn_up = 3
 };
 
 typedef struct owf_fn_listener owf_fn_listener;

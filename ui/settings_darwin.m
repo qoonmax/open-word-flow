@@ -7,8 +7,16 @@
 static NSString *const owf_language_key = @"language";
 static NSString *const owf_interface_language_key = @"interfaceLanguage";
 static NSString *const owf_vocabulary_key = @"vocabulary";
+static NSString *const owf_fn_mode_key = @"fnMode";
 static NSString *const owf_default_language = @"auto";
 static NSString *const owf_system_language = @"system";
+static NSString *const owf_fn_double = @"double";
+static NSString *const owf_fn_hold = @"hold";
+
+static NSString *const owf_fn_modes[][2] = {
+    {@"double", @"Double-press Fn to start and stop"},
+    {@"hold", @"Hold Fn while speaking"},
+};
 
 // Whisper language codes offered in Settings; "auto" detects the language of each recording.
 static NSString *const owf_speech_languages[][2] = {
@@ -43,10 +51,12 @@ static void owf_settings_reload(void);
     [NSUserDefaults.standardUserDefaults setObject:sender.selectedItem.representedObject
                                             forKey:sender.identifier];
 
+    // The menu hint follows both the interface language and the Fn mode.
+    owf_status_menu_reload();
+
     if ([sender.identifier isEqualToString:owf_interface_language_key]) {
         // Rebuild after this action returns: the rebuild replaces the sender itself.
         dispatch_async(dispatch_get_main_queue(), ^{
-            owf_status_menu_reload();
             owf_settings_reload();
         });
     }
@@ -71,6 +81,10 @@ static NSDictionary<NSString *, NSString *> *owf_russian(void) {
     dispatch_once(&once, ^{
         strings = [@{
             @"Double-press Fn to dictate": @"Дважды нажмите Fn для диктовки",
+            @"Hold Fn to dictate": @"Удерживайте Fn для диктовки",
+            @"Dictation:": @"Диктовка:",
+            @"Double-press Fn to start and stop": @"Двойное нажатие Fn — старт и стоп",
+            @"Hold Fn while speaking": @"Удерживать Fn во время речи",
             @"Settings…": @"Настройки…",
             @"Quit Open Word Flow": @"Завершить Open Word Flow",
             @"Open Word Flow stopped": @"Open Word Flow остановлен",
@@ -138,8 +152,17 @@ static NSTextField *owf_form_label(NSString *text) {
     return label;
 }
 
-static NSGridView *owf_language_grid(void) {
+static NSGridView *owf_options_grid(void) {
     NSGridView *grid = [NSGridView gridViewWithViews:@[
+        @[
+            owf_form_label(owf_text(@"Dictation:")),
+            owf_popup(
+                owf_fn_modes,
+                sizeof(owf_fn_modes) / sizeof(owf_fn_modes[0]),
+                owf_fn_mode_key,
+                owf_fn_double
+            ),
+        ],
         @[
             owf_form_label(owf_text(@"Speech language:")),
             owf_popup(
@@ -190,7 +213,7 @@ static NSScrollView *owf_vocabulary_editor(CGFloat width) {
 
 static NSView *owf_settings_content(void) {
     CGFloat contentWidth = owf_settings_width - 2 * owf_settings_inset;
-    NSGridView *languages = owf_language_grid();
+    NSGridView *options = owf_options_grid();
 
     NSTextField *vocabularyTitle = [NSTextField labelWithString:owf_text(@"Vocabulary")];
     vocabularyTitle.font = [NSFont boldSystemFontOfSize:NSFont.systemFontSize];
@@ -205,7 +228,7 @@ static NSView *owf_settings_content(void) {
     vocabularyHelp.preferredMaxLayoutWidth = contentWidth;
 
     NSStackView *content = [NSStackView stackViewWithViews:@[
-        languages,
+        options,
         vocabularyTitle,
         vocabularyHelp,
         owf_vocabulary_editor(contentWidth),
@@ -216,7 +239,7 @@ static NSView *owf_settings_content(void) {
     content.edgeInsets = NSEdgeInsetsMake(
         owf_settings_inset, owf_settings_inset, owf_settings_inset, owf_settings_inset
     );
-    [content setCustomSpacing:20 afterView:languages];
+    [content setCustomSpacing:20 afterView:options];
     [content.widthAnchor constraintEqualToConstant:owf_settings_width].active = YES;
 
     return content;
@@ -265,5 +288,11 @@ char *owf_settings_language(void) {
 char *owf_settings_vocabulary(void) {
     @autoreleasepool {
         return strdup(owf_setting(owf_vocabulary_key, @"").UTF8String);
+    }
+}
+
+int owf_settings_fn_hold(void) {
+    @autoreleasepool {
+        return [owf_setting(owf_fn_mode_key, owf_fn_double) isEqualToString:owf_fn_hold];
     }
 }

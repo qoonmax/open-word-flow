@@ -1,4 +1,5 @@
-// Package hotkey listens for a double press of the macOS Fn (Globe) key.
+// Package hotkey starts and stops recording with the macOS Fn (Globe) key:
+// a double press toggles it, or in hold mode it lasts while Fn is held.
 package hotkey
 
 /*
@@ -16,31 +17,30 @@ import (
 )
 
 type (
-	// Listener listens for a double press of Fn.
+	// Listener listens for Fn.
 	Listener struct{}
 
-	// doubleTap detects two presses within window with no other keys in between.
-	doubleTap struct {
-		window time.Duration
-		last   time.Time
+	// trigger decides when Fn starts and stops recording. A double press is two
+	// presses within window with no other keys in between.
+	trigger struct {
+		window    time.Duration
+		last      time.Time
+		recording bool
 	}
 )
 
 // DoubleTapWindow is the maximum time between two Fn presses that counts as a double press.
 const DoubleTapWindow = 400 * time.Millisecond
 
-// NewListener creates a double-Fn listener.
+// NewListener creates an Fn listener.
 func NewListener() *Listener {
 	return &Listener{}
 }
 
-// String returns a user-facing shortcut name.
-func (l *Listener) String() string {
-	return "Fn twice"
-}
-
-// Run listens for a double press of Fn and invokes callback until the context is canceled.
-func (l *Listener) Run(ctx context.Context, callback func() error) error {
+// Run listens for Fn until the context is canceled and invokes callback each
+// time recording should start or stop; calls alternate, starting with a start.
+// hold, checked on every Fn event, reports whether hold mode is on.
+func (l *Listener) Run(ctx context.Context, hold func() bool, callback func() error) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -61,41 +61,66 @@ func (l *Listener) Run(ctx context.Context, callback func() error) error {
 
 	defer C.owf_fn_close(listener)
 
-	detector := doubleTap{window: DoubleTapWindow}
+	fn := trigger{window: DoubleTapWindow}
 
 	for ctx.Err() == nil {
+		var switched bool
+
 		switch C.owf_fn_wait(listener, 0.25) {
 		case C.owf_event_error:
 			return errors.New("listen for Fn key: macOS event tap was invalidated")
 		case C.owf_event_other_key:
-			detector.reset()
+			fn.reset()
 		case C.owf_event_fn_down:
-			if !detector.press(time.Now()) {
-				continue
-			}
+			switched = fn.press(time.Now(), hold())
+		case C.owf_event_fn_up:
+			switched = fn.release(hold())
+		}
 
-			if err := callback(); err != nil {
-				return err
-			}
+		if !switched {
+			continue
+		}
+
+		if err := callback(); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-// press records a press at now and reports whether it completes a double press.
-func (d *doubleTap) press(now time.Time) bool {
-	if !d.last.IsZero() && now.Sub(d.last) <= d.window {
-		d.reset()
+// press records Fn going down at now and reports whether recording starts or stops.
+func (t *trigger) press(now time.Time, hold bool) bool {
+	if hold {
+		started := !t.recording
+		t.recording = true
 
-		return true
+		return started
 	}
 
-	d.last = now
+	if t.last.IsZero() || now.Sub(t.last) > t.window {
+		t.last = now
 
-	return false
+		return false
+	}
+
+	t.reset()
+	t.recording = !t.recording
+
+	return true
 }
 
-func (d *doubleTap) reset() {
-	d.last = time.Time{}
+// release records Fn going up and reports whether recording stops.
+func (t *trigger) release(hold bool) bool {
+	if !hold || !t.recording {
+		return false
+	}
+
+	t.recording = false
+
+	return true
+}
+
+func (t *trigger) reset() {
+	t.last = time.Time{}
 }

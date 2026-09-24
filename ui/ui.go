@@ -22,6 +22,8 @@ type Preferences struct {
 	Language string
 	// Vocabulary lists words and phrases that transcription should favor.
 	Vocabulary string
+	// HoldFn records while Fn is held instead of between two double presses.
+	HoldFn bool
 }
 
 const levelInterval = time.Second / 30
@@ -55,6 +57,7 @@ func LoadPreferences() Preferences {
 	return Preferences{
 		Language:   takeString(C.owf_settings_language()),
 		Vocabulary: takeString(C.owf_settings_vocabulary()),
+		HoldFn:     C.owf_settings_fn_hold() != 0,
 	}
 }
 

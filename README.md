@@ -1,7 +1,8 @@
 # Open Word Flow
 
 Open Word Flow is a local macOS dictation app that lives in the menu bar. A
-double press of the Fn (🌐) key starts and stops recording; each clip is
+double press of the Fn (🌐) key starts and stops recording, or you hold Fn
+while speaking; each clip is
 transcribed offline with whisper.cpp and the text is pasted into the focused
 application.
 
@@ -34,15 +35,16 @@ For development logs, run the binary inside the bundle from a terminal:
 ## Usage
 
 Double-press Fn to start recording and double-press it again to stop (presses
-at most 400 ms apart, no other keys in between). The transcript is pasted into
-the focused application through the clipboard; the previous clipboard contents
+at most 400 ms apart, no other keys in between), or switch **Dictation** in
+Settings to holding Fn, and recording lasts while Fn is held. The transcript is
+pasted into the focused application through the clipboard; the previous clipboard contents
 are restored half a second later unless something new was copied in the
 meantime. Silero voice activity detection drops silence before transcription,
 so empty or near-silent clips paste nothing instead of whisper hallucinations
 such as "Thank you."
 
-**Settings…** in the menu bar icon sets the speech language (automatic by
-default), the interface language (English or Russian, following macOS by
+**Settings…** in the menu bar icon sets the Fn mode, the speech language
+(automatic by default), the interface language (English or Russian, following macOS by
 default; switches immediately), and a vocabulary: names, terms, and English words you often say.
 whisper reads the vocabulary as text spoken right before the recording, which
 favors those spellings. Changes apply to the next recording. **Quit** finishes

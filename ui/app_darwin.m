@@ -67,7 +67,8 @@ static void owf_setup_main_menu(void) {
 
 // Rebuilds the menu bar icon's menu in the current interface language.
 void owf_status_menu_reload(void) {
-    NSMenuItem *hint = [[[NSMenuItem alloc] initWithTitle:owf_text(@"Double-press Fn to dictate")
+    NSString *hintText = owf_settings_fn_hold() ? @"Hold Fn to dictate" : @"Double-press Fn to dictate";
+    NSMenuItem *hint = [[[NSMenuItem alloc] initWithTitle:owf_text(hintText)
                                                    action:nil
                                             keyEquivalent:@""] autorelease];
     hint.enabled = NO;

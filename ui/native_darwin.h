@@ -10,6 +10,8 @@ void owf_ui_hide(void);
 void owf_ui_set_level(double level);
 char *owf_settings_language(void);
 char *owf_settings_vocabulary(void);
+// Reports whether recording lasts while Fn is held rather than between double presses.
+int owf_settings_fn_hold(void);
 
 // Shared between the ui sources; main thread only.
 void owf_activate(void);

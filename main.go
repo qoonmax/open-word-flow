@@ -69,12 +69,14 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	fmt.Printf("Ready. Press %s to start or stop recording. Press Ctrl+C to exit.\n", listener)
+	fmt.Println("Ready. Double-press or hold Fn to record, as chosen in Settings. Press Ctrl+C to exit.")
 
 	listenDone := make(chan error, 1)
 
 	go func() {
-		listenDone <- listener.Run(ctx, func() error {
+		holdFn := func() bool { return ui.LoadPreferences().HoldFn }
+
+		listenDone <- listener.Run(ctx, holdFn, func() error {
 			event, toggleErr := controller.Toggle()
 			if toggleErr != nil {
 				return toggleErr
@@ -82,7 +84,7 @@ func run() error {
 
 			if event.Recording {
 				ui.Show(recorder.Level)
-				fmt.Printf("Recording started. Press %s again to stop.\n", listener)
+				fmt.Println("Recording started.")
 
 				return nil
 			}
