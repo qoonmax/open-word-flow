@@ -14,5 +14,12 @@ char *owf_settings_vocabulary(void);
 void owf_activate(void);
 void owf_island_setup(void);
 void owf_settings_open(void);
+void owf_status_menu_reload(void);
+
+#ifdef __OBJC__
+@class NSString;
+// Returns english translated into the interface language chosen in Settings.
+NSString *owf_text(NSString *english);
+#endif
 
 #endif

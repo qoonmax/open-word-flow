@@ -42,7 +42,8 @@ so empty or near-silent clips paste nothing instead of whisper hallucinations
 such as "Thank you."
 
 **Settings…** in the menu bar icon sets the speech language (automatic by
-default) and a vocabulary: names, terms, and English words you often say.
+default), the interface language (English or Russian, following macOS by
+default; switches immediately), and a vocabulary: names, terms, and English words you often say.
 whisper reads the vocabulary as text spoken right before the recording, which
 favors those spellings. Changes apply to the next recording. **Quit** finishes
 an active recording without transcribing it.

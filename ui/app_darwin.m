@@ -65,12 +65,9 @@ static void owf_setup_main_menu(void) {
     NSApp.mainMenu = main;
 }
 
-static void owf_setup_status_item(void) {
-    owf_status_item = [[NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength] retain];
-    owf_status_item.button.image = [NSImage imageWithSystemSymbolName:@"waveform"
-                                             accessibilityDescription:@"Open Word Flow"];
-
-    NSMenuItem *hint = [[[NSMenuItem alloc] initWithTitle:@"Double-press Fn to dictate"
+// Rebuilds the menu bar icon's menu in the current interface language.
+void owf_status_menu_reload(void) {
+    NSMenuItem *hint = [[[NSMenuItem alloc] initWithTitle:owf_text(@"Double-press Fn to dictate")
                                                    action:nil
                                             keyEquivalent:@""] autorelease];
     hint.enabled = NO;
@@ -78,10 +75,17 @@ static void owf_setup_status_item(void) {
     NSMenu *menu = [[[NSMenu alloc] init] autorelease];
     [menu addItem:hint];
     [menu addItem:[NSMenuItem separatorItem]];
-    [menu addItem:owf_menu_item(@"Settings…", @selector(openSettings:), @",", owf_actions)];
+    [menu addItem:owf_menu_item(owf_text(@"Settings…"), @selector(openSettings:), @",", owf_actions)];
     [menu addItem:[NSMenuItem separatorItem]];
-    [menu addItem:owf_menu_item(@"Quit Open Word Flow", @selector(quit:), @"q", owf_actions)];
+    [menu addItem:owf_menu_item(owf_text(@"Quit Open Word Flow"), @selector(quit:), @"q", owf_actions)];
     owf_status_item.menu = menu;
+}
+
+static void owf_setup_status_item(void) {
+    owf_status_item = [[NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength] retain];
+    owf_status_item.button.image = [NSImage imageWithSystemSymbolName:@"waveform"
+                                             accessibilityDescription:@"Open Word Flow"];
+    owf_status_menu_reload();
 }
 
 static void owf_init_app(void) {
@@ -133,7 +137,7 @@ void owf_ui_alert(const char *message) {
         owf_activate();
 
         NSAlert *alert = [[[NSAlert alloc] init] autorelease];
-        alert.messageText = @"Open Word Flow stopped";
+        alert.messageText = owf_text(@"Open Word Flow stopped");
         alert.informativeText = [NSString stringWithUTF8String:message] ?: @"";
         [alert runModal];
     }
