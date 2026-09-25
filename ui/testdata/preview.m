@@ -19,7 +19,7 @@ static NSString *previewed_sound;
 void owf_sound_preview(NSString *sound) { previewed_sound = sound; }
 
 static void capture(NSView *view, NSString *name) {
-    [view displayIfNeeded];
+    [view display];
     NSBitmapImageRep *image = [view bitmapImageRepForCachingDisplayInRect:view.bounds];
     [view cacheDisplayInRect:view.bounds toBitmapImageRep:image];
     NSString *path = [@"/tmp/owf-ui-check" stringByAppendingPathComponent:name];
@@ -42,15 +42,13 @@ static void check_settings(void) {
     for (NSView *view in owf_tabs.superview.subviews) {
         if ([view isKindOfClass:NSTextField.class]) assert(!NSIntersectsRect(view.frame, owf_tabs.frame));
     }
-    NSSegmentedControl *mode = [NSSegmentedControl segmentedControlWithLabels:@[@"Double", @"Hold"]
-                                                              trackingMode:NSSegmentSwitchTrackingSelectOne
-                                                                    target:nil action:nil];
-    mode.selectedSegment = 1;
-    [owf_settings modeChanged:mode];
+    assert(clickable(owf_modes[0]) && clickable(owf_modes[1]));
+    [owf_modes[1] performClick:nil];
     assert(owf_settings_fn_hold());
-    mode.selectedSegment = 0;
-    [owf_settings modeChanged:mode];
+    assert(owf_modes[1].state == NSControlStateValueOn && owf_modes[0].state == NSControlStateValueOff);
+    [owf_modes[0] performClick:nil];
     assert(!owf_settings_fn_hold());
+    assert(owf_modes[0].state == NSControlStateValueOn && owf_modes[1].state == NSControlStateValueOff);
     owf_vocabulary_view.string = @"Open Word Flow\nAppKit\nQuartzCore";
     [owf_settings textDidChange:[NSNotification notificationWithName:NSTextDidChangeNotification object:owf_vocabulary_view]];
     for (NSString *language in @[@"en", @"ru"]) {
@@ -94,7 +92,25 @@ static void check_settings(void) {
     owf_corrections_write(@[]);
     owf_corrections_reload();
     assert(owf_corrections.count == 0 && !owf_corrections_empty.hidden);
+    assert(!owf_corrections_clear.enabled);
     capture(owf_settings_window.contentView, @"corrections-empty.png");
+    // Long corrections wrap instead of hiding the corrected text behind an ellipsis.
+    owf_corrections_write(@[@{@"time": @"2026-09-25T18:03:00+02:00",
+        @"heard": @"Нужно проверить настройки приложения, переключение языка интерфейса и сохранение длинных исправлений в истории диктовки.",
+        @"fixed": @"Нужно проверить настройки Open Word Flow, переключение языка интерфейса и сохранение длинных исправлений в истории диктовки."}]);
+    owf_corrections_reload();
+    assert(owf_corrections_clear.enabled);
+    NSTextField *longWords = owf_corrections_scroll.documentView.subviews.firstObject;
+    assert(NSHeight(longWords.frame) > 40);
+    capture(owf_settings_window.contentView, @"corrections-long.png");
+    NSMutableDictionary *longEntry = [[owf_corrections[0] mutableCopy] autorelease];
+    longEntry[@"fixed"] = [@[longEntry[@"fixed"], longEntry[@"fixed"], longEntry[@"fixed"]] componentsJoinedByString:@"\n"];
+    owf_corrections_write(@[longEntry]);
+    owf_corrections_reload();
+    edit.tag = 0;
+    [owf_settings editCorrection:edit];
+    assert(NSHeight(owf_edit_fixed.frame) > 60);
+    [owf_settings cancelCorrection:nil];
     owf_tabs.selectedSegment = 0;
     [owf_settings tabChanged:owf_tabs];
     NSPopUpButton *sound = owf_popup(owf_sounds, 4, owf_sound_key, owf_default_sound);
@@ -106,7 +122,7 @@ static void check_settings(void) {
     assert([previewed_sound isEqualToString:@"pulse"]);
 }
 
-int main(void) {
+int main(int argc, const char *argv[]) {
     @autoreleasepool {
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
@@ -120,6 +136,10 @@ int main(void) {
         owf_settings_set_corrections_file(corrections_file.UTF8String);
         owf_settings_open();
         owf_island_setup();
+        if (argc > 1 && strcmp(argv[1], "--interactive") == 0) {
+            [NSApp run];
+            return 0;
+        }
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             check_settings();
             owf_ui_show();

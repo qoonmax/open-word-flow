@@ -40,6 +40,8 @@ static NSString *const owf_interface_languages[][2] = {
 
 static const CGFloat owf_settings_width = 800;
 static const CGFloat owf_settings_height = 660;
+static const CGFloat owf_body_size = 13;
+static const CGFloat owf_caption_size = 12;
 
 @interface OWFSettingsController : NSObject <NSTextViewDelegate>
 @end
@@ -49,6 +51,7 @@ static OWFSettingsController *owf_settings;
 static NSWindow *owf_settings_window;
 static NSTextView *owf_vocabulary_view;
 static NSTextField *owf_shortcut_hint;
+static NSButton *owf_modes[2];
 static void owf_update_shortcut(void);
 
 static void owf_settings_reload(void);
@@ -63,7 +66,8 @@ static NSSegmentedControl *owf_tabs;
 static NSView *owf_general_view;
 static NSView *owf_corrections_view;
 static NSScrollView *owf_corrections_scroll;
-static NSTextField *owf_corrections_empty;
+static NSView *owf_corrections_empty;
+static NSButton *owf_corrections_clear;
 static NSTextField *owf_edit_heard;
 static NSTextField *owf_edit_fixed;
 static void owf_show_tab(BOOL animate);
@@ -94,8 +98,8 @@ static void owf_corrections_change(NSDictionary *old, NSDictionary *replacement)
     }
 }
 
-- (void)modeChanged:(NSSegmentedControl *)sender {
-    [NSUserDefaults.standardUserDefaults setObject:sender.selectedSegment == 1 ? owf_fn_hold : owf_fn_double
+- (void)modeChanged:(NSButton *)sender {
+    [NSUserDefaults.standardUserDefaults setObject:sender.tag == 1 ? owf_fn_hold : owf_fn_double
                                             forKey:owf_fn_mode_key];
     owf_update_shortcut();
     owf_status_menu_reload();
@@ -121,6 +125,7 @@ static void owf_corrections_change(NSDictionary *old, NSDictionary *replacement)
     owf_corrections_editing = sender.tag;
     owf_corrections_reload();
     [owf_settings_window makeFirstResponder:owf_edit_fixed];
+    [owf_edit_fixed scrollRectToVisible:owf_edit_fixed.bounds];
 }
 
 - (void)deleteCorrection:(NSButton *)sender {
@@ -219,8 +224,9 @@ static NSDictionary<NSString *, NSString *> *owf_russian(void) {
             @"General": @"Основные",
             @"Corrections": @"Правки",
             @"Heard and corrected text, saved with Control+Fn.": @"Распознанный и исправленный текст, сохранённый по Ctrl+Fn.",
-            @"No corrections yet. Fix a pasted transcript, select it, and press Control+Fn.":
-                @"Правок пока нет. Исправьте вставленный текст, выделите его и нажмите Ctrl+Fn.",
+            @"No corrections yet": @"Пока нет правок",
+            @"Fix a pasted transcript, select the corrected text, then press Control+Fn.":
+                @"Исправьте вставленный текст, выделите исправленный фрагмент и нажмите Ctrl+Fn.",
             @"Heard": @"Распознано",
             @"Corrected": @"Исправлено",
             @"Edit": @"Изменить",
@@ -235,9 +241,10 @@ static NSDictionary<NSString *, NSString *> *owf_russian(void) {
             @"Settings": @"Настройки",
             @"Speak freely. Stay in your flow.": @"Говорите. Не теряйте мысль.",
             @"Dictation": @"Диктовка",
+            @"Fn key behavior": @"Управление клавишей Fn",
             @"Double press": @"Двойное нажатие",
             @"Press and hold": @"Удерживание",
-            @"Double-press Fn to start.\nDouble-press again to finish.": @"Дважды нажмите Fn для записи.\nЕщё два нажатия для завершения.",
+            @"Double-press Fn to start.\nDouble-press again to finish.": @"Дважды Fn: начать запись.\nЕщё дважды: завершить.",
             @"Hold Fn while you speak.\nRelease to finish.": @"Удерживайте Fn, пока говорите.\nОтпустите для завершения.",
             @"Sounds": @"Звуки",
             @"Start and stop cues": @"Сигналы начала и конца записи",
@@ -250,7 +257,7 @@ static NSDictionary<NSString *, NSString *> *owf_russian(void) {
             @"Keep it short: only the last ~200 tokens are used.": @"Пишите коротко: учитываются последние ~200 токенов.",
             @"Changes saved automatically": @"Изменения сохраняются автоматически",
             @"On your Mac": @"На вашем Mac",
-            @"Offline transcription.\nYour voice stays here.": @"Распознавание без интернета.\nВаш голос остаётся здесь.",
+            @"Offline transcription.\nYour voice stays here.": @"Работает без интернета.\nВаш голос остаётся здесь.",
         } retain];
     });
 
@@ -346,10 +353,10 @@ static NSColor *owf_accent(void) {
         [path stroke];
     } else {
         NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(self.bounds, 0.5, 0.5)
-                                                          xRadius:16 yRadius:16];
+                                                          xRadius:12 yRadius:12];
         [NSColor.controlBackgroundColor setFill];
         [path fill];
-        [[NSColor.labelColor colorWithAlphaComponent:0.12] setStroke];
+        [[NSColor.labelColor colorWithAlphaComponent:0.10] setStroke];
         [path stroke];
     }
 }
@@ -367,6 +374,7 @@ static NSTextField *owf_label(NSView *parent, NSString *text, NSRect frame, CGFl
     label.frame = NSOffsetRect(frame, -2, 0);
     label.font = [NSFont systemFontOfSize:size weight:weight];
     label.textColor = color;
+    label.selectable = NO;
     [parent addSubview:label];
     return label;
 }
@@ -380,6 +388,13 @@ static NSImageView *owf_symbol(NSView *parent, NSString *name, NSRect frame, NSC
     [icon setAccessibilityElement:NO];
     [parent addSubview:icon];
     return icon;
+}
+
+// Align an inline symbol to the text's cap height, not the label's padded frame.
+static void owf_label_symbol(NSView *parent, NSString *name, CGFloat x, NSTextField *label, NSColor *color) {
+    CGFloat size = 18;
+    CGFloat baseline = NSMaxY(label.frame) - label.firstBaselineOffsetFromTop;
+    owf_symbol(parent, name, NSMakeRect(x, round(baseline + (label.font.capHeight - size) / 2), size, size), color);
 }
 
 // Places a label of wrapped text with its last line ending at bottom and returns its top.
@@ -445,6 +460,8 @@ static OWFSurface *owf_key(NSView *parent, NSRect frame) {
 
     OWFSurface *key = [[[OWFSurface alloc] initWithFrame:frame] autorelease];
     key.key = YES;
+    // The key is always black; keep AppKit's dark-label vibrancy from erasing its white legend.
+    key.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
     [parent addSubview:key];
     return key;
 }
@@ -553,16 +570,21 @@ static NSAttributedString *owf_correction_words(NSDictionary *entry) {
     free(json);
 
     NSMutableAttributedString *words = [[[NSMutableAttributedString alloc] init] autorelease];
-    NSDictionary *space = @{NSFontAttributeName: [NSFont systemFontOfSize:13]};
+    NSMutableParagraphStyle *paragraph = [[[NSMutableParagraphStyle alloc] init] autorelease];
+    paragraph.lineSpacing = 3;
+    NSDictionary *space = @{NSFontAttributeName: [NSFont systemFontOfSize:owf_body_size],
+                            NSParagraphStyleAttributeName: paragraph};
 
     for (NSDictionary *part in parts) {
         int kind = [part[@"kind"] intValue];
         NSMutableDictionary *style = [[space mutableCopy] autorelease];
-        style[NSForegroundColorAttributeName] = kind == 0 ? NSColor.secondaryLabelColor
-                                              : kind == 1 ? NSColor.tertiaryLabelColor : owf_accent();
+        style[NSForegroundColorAttributeName] = kind == 0 ? NSColor.labelColor
+                                              : kind == 1 ? NSColor.secondaryLabelColor : owf_accent();
 
         if (kind == 1) {
             style[NSStrikethroughStyleAttributeName] = @(NSUnderlineStyleSingle);
+        } else if (kind == 2) {
+            style[NSFontAttributeName] = [NSFont systemFontOfSize:owf_body_size weight:NSFontWeightMedium];
         }
 
         if (words.length > 0) {
@@ -596,7 +618,11 @@ static NSString *owf_correction_date(id time) {
 }
 
 static NSButton *owf_row_button(NSView *list, NSString *symbol, NSString *label, SEL action, NSInteger index, NSRect frame) {
-    NSButton *button = [NSButton buttonWithImage:[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:owf_text(label)]
+    // The square symbol is shorter at the same point size; balance its visible height with the trash.
+    CGFloat size = [symbol isEqualToString:@"square.and.pencil"] ? 16 : 14;
+    NSImage *image = [[NSImage imageWithSystemSymbolName:symbol accessibilityDescription:owf_text(label)]
+        imageWithSymbolConfiguration:[NSImageSymbolConfiguration configurationWithPointSize:size weight:NSFontWeightMedium]];
+    NSButton *button = [NSButton buttonWithImage:image
                                          target:owf_settings
                                          action:action];
     button.bordered = NO;
@@ -612,20 +638,26 @@ static NSButton *owf_row_button(NSView *list, NSString *symbol, NSString *label,
 static CGFloat owf_correction_row(NSView *list, NSInteger index, CGFloat top, CGFloat width) {
     NSDictionary *entry = owf_corrections[index];
     NSTextField *words = [NSTextField labelWithAttributedString:owf_correction_words(entry)];
-    words.lineBreakMode = NSLineBreakByTruncatingTail;
-    words.frame = NSMakeRect(14, top + 10, width - 104, 18);
+    words.usesSingleLineMode = NO;
+    words.lineBreakMode = NSLineBreakByWordWrapping;
+    words.cell.wraps = YES;
+    CGFloat textWidth = width - 112;
+    CGFloat textHeight = ceil([words.cell cellSizeForBounds:NSMakeRect(0, 0, textWidth, CGFLOAT_MAX)].height);
+    words.frame = NSMakeRect(18, top + 14, textWidth, textHeight);
+    words.selectable = YES;
     words.toolTip = entry[@"fixed"];
     [list addSubview:words];
 
     NSTextField *when = [NSTextField labelWithString:owf_correction_date(entry[@"time"])];
-    when.font = [NSFont systemFontOfSize:11];
-    when.textColor = NSColor.tertiaryLabelColor;
-    when.frame = NSMakeRect(14, top + 30, width - 104, 15);
+    when.font = [NSFont systemFontOfSize:owf_caption_size];
+    when.textColor = NSColor.secondaryLabelColor;
+    when.frame = NSMakeRect(18, NSMaxY(words.frame) + 6, textWidth, 17);
     [list addSubview:when];
 
-    owf_row_button(list, @"pencil", @"Edit", @selector(editCorrection:), index, NSMakeRect(width - 76, top + 14, 26, 26));
-    owf_row_button(list, @"trash", @"Delete", @selector(deleteCorrection:), index, NSMakeRect(width - 44, top + 14, 26, 26));
-    return 56;
+    // Half-point optical correction: both glyphs then share their visible top and bottom edges.
+    owf_row_button(list, @"square.and.pencil", @"Edit", @selector(editCorrection:), index, NSMakeRect(width - 80, top + 11.5, 30, 30));
+    owf_row_button(list, @"trash", @"Delete", @selector(deleteCorrection:), index, NSMakeRect(width - 44, top + 12, 30, 30));
+    return NSMaxY(when.frame) + 14 - top;
 }
 
 // Adds correction index as two editable fields with Cancel and Save at top and returns its height.
@@ -634,24 +666,27 @@ static CGFloat owf_edit_row(NSView *list, NSInteger index, CGFloat top, CGFloat 
     NSString *titles[] = {@"Heard", @"Corrected"};
     NSString *keys[] = {@"heard", @"fixed"};
     NSTextField *fields[2];
-    CGFloat y = top + 12;
+    CGFloat y = top + 16;
 
     for (int i = 0; i < 2; i++) {
         NSTextField *title = [NSTextField labelWithString:owf_text(titles[i])];
-        title.font = [NSFont systemFontOfSize:11];
+        title.font = [NSFont systemFontOfSize:owf_caption_size weight:NSFontWeightMedium];
         title.textColor = NSColor.secondaryLabelColor;
-        title.frame = NSMakeRect(14, y, width - 32, 15);
+        title.frame = NSMakeRect(18, y, width - 40, 17);
         [list addSubview:title];
 
         fields[i] = [NSTextField textFieldWithString:entry[keys[i]]];
-        fields[i].frame = NSMakeRect(16, y + 19, width - 34, 52);
-        fields[i].font = [NSFont systemFontOfSize:13];
+        fields[i].frame = NSMakeRect(20, y + 23, width - 40, 60);
+        fields[i].font = [NSFont systemFontOfSize:owf_body_size];
         fields[i].usesSingleLineMode = NO;
         fields[i].cell.wraps = YES;
         fields[i].cell.scrollable = NO;
+        CGFloat fieldHeight = fmax(60, ceil([fields[i].cell cellSizeForBounds:
+            NSMakeRect(0, 0, width - 40, CGFLOAT_MAX)].height) + 12);
+        [fields[i] setFrameSize:NSMakeSize(width - 40, fieldHeight)];
         [fields[i] setAccessibilityLabel:owf_text(titles[i])];
         [list addSubview:fields[i]];
-        y += 19 + 52 + 12;
+        y += 23 + fieldHeight + 16;
     }
 
     owf_edit_heard = fields[0];
@@ -659,11 +694,13 @@ static CGFloat owf_edit_row(NSView *list, NSInteger index, CGFloat top, CGFloat 
 
     NSButton *save = [NSButton buttonWithTitle:owf_text(@"Save") target:owf_settings action:@selector(saveCorrection:)];
     save.keyEquivalent = @"\r";
+    save.bezelColor = [NSColor colorWithSRGBRed:0.50 green:0.30 blue:0.93 alpha:1];
     NSButton *cancel = [NSButton buttonWithTitle:owf_text(@"Cancel") target:owf_settings action:@selector(cancelCorrection:)];
     cancel.keyEquivalent = @"\033";
-    CGFloat right = width - 12;
+    CGFloat right = width - 14;
 
     for (NSButton *button in @[save, cancel]) {
+        button.font = [NSFont systemFontOfSize:owf_body_size];
         [button sizeToFit];
         right -= NSWidth(button.frame);
         [button setFrameOrigin:NSMakePoint(right, y)];
@@ -703,6 +740,7 @@ static void owf_corrections_reload(void) {
 
     [list setFrameSize:NSMakeSize(width, fmax(y, owf_corrections_scroll.contentSize.height))];
     owf_corrections_empty.hidden = owf_corrections.count > 0;
+    owf_corrections_clear.enabled = owf_corrections.count > 0;
 }
 
 static void owf_show_tab(BOOL animate) {
@@ -714,14 +752,13 @@ static void owf_show_tab(BOOL animate) {
     }
 }
 
-// The Corrections tab in body coordinates: a hint where General says changes
-// save, the list in a card, and buttons along the bottom.
+// The Corrections tab shares the same content edges as General.
 static NSView *owf_corrections_content(NSRect frame) {
     NSView *view = [[[NSView alloc] initWithFrame:frame] autorelease];
-    owf_label(view, @"Heard and corrected text, saved with Control+Fn.", NSMakeRect(0, 528, 508, 24), 13,
+    owf_label(view, @"Heard and corrected text, saved with Control+Fn.", NSMakeRect(0, 459, 508, 36), owf_caption_size,
               NSFontWeightRegular, NSColor.secondaryLabelColor);
 
-    OWFSurface *card = [[[OWFSurface alloc] initWithFrame:NSMakeRect(0, 76, 508, 440)] autorelease];
+    OWFSurface *card = [[[OWFSurface alloc] initWithFrame:NSMakeRect(0, 76, 508, 376)] autorelease];
     [view addSubview:card];
     owf_corrections_scroll = [[[NSScrollView alloc] initWithFrame:NSInsetRect(card.bounds, 1, 6)] autorelease];
     owf_corrections_scroll.drawsBackground = NO;
@@ -730,14 +767,24 @@ static NSView *owf_corrections_content(NSRect frame) {
     owf_corrections_scroll.documentView = [[[OWFFlippedView alloc] initWithFrame:owf_corrections_scroll.bounds] autorelease];
     [card addSubview:owf_corrections_scroll];
 
-    owf_corrections_empty = owf_label(card, @"No corrections yet. Fix a pasted transcript, select it, and press Control+Fn.",
-                                      NSMakeRect(60, 196, 388, 48), 13, NSFontWeightRegular, NSColor.secondaryLabelColor);
-    owf_corrections_empty.alignment = NSTextAlignmentCenter;
+    owf_corrections_empty = [[[NSView alloc] initWithFrame:NSMakeRect(44, 124, 420, 132)] autorelease];
+    [card addSubview:owf_corrections_empty];
+    owf_symbol(owf_corrections_empty, @"text.badge.checkmark", NSMakeRect(193, 94, 34, 34), owf_accent());
+    NSTextField *emptyTitle = owf_label(owf_corrections_empty, @"No corrections yet", NSMakeRect(0, 60, 420, 22),
+                                       owf_body_size, NSFontWeightSemibold, NSColor.labelColor);
+    emptyTitle.alignment = NSTextAlignmentCenter;
+    NSTextField *emptyHint = owf_label(owf_corrections_empty,
+        @"Fix a pasted transcript, select the corrected text, then press Control+Fn.", NSMakeRect(24, 8, 372, 44),
+        owf_body_size, NSFontWeightRegular, NSColor.secondaryLabelColor);
+    emptyHint.alignment = NSTextAlignmentCenter;
 
     NSButton *show = [NSButton buttonWithTitle:owf_text(@"Show File") target:owf_settings action:@selector(showCorrectionsFile:)];
     NSButton *clear = [NSButton buttonWithTitle:owf_text(@"Clear All…") target:owf_settings action:@selector(clearCorrections:)];
+    clear.hasDestructiveAction = YES;
+    owf_corrections_clear = clear;
 
     for (NSButton *button in @[show, clear]) {
+        button.font = [NSFont systemFontOfSize:owf_body_size];
         [button sizeToFit];
         [view addSubview:button];
     }
@@ -755,38 +802,38 @@ static NSView *owf_settings_content(void) {
     sidebar.sidebar = YES;
     [root addSubview:sidebar];
     // The logo's top lines up with the cap height of the Settings title.
-    owf_spectrum_symbol(sidebar, @"waveform", 28, 597, 34);
+    owf_spectrum_symbol(sidebar, @"waveform", 28, 595, 34);
     owf_label(sidebar, @"Open\nWord Flow", NSMakeRect(28, 459, 184, 86), 31, NSFontWeightSemibold, NSColor.labelColor);
     owf_label(sidebar, @"Speak freely. Stay in your flow.", NSMakeRect(28, 401, 172, 46), 13,
               NSFontWeightRegular, NSColor.secondaryLabelColor);
 
-    OWFSurface *key = owf_key(sidebar, NSMakeRect(28, 255, 76, 76));
+    OWFSurface *key = owf_key(sidebar, NSMakeRect(28, 279, 76, 76));
     owf_label(key, @"fn", NSMakeRect(16, 13, 50, 38), 30, NSFontWeightMedium, [NSColor colorWithWhite:1 alpha:0.92]);
     owf_symbol(key, @"globe", NSMakeRect(48, 46, 16, 16), [NSColor colorWithWhite:1 alpha:0.55]);
-    owf_shortcut_hint = owf_label(sidebar, @"", NSMakeRect(28, 171, 178, 64), 12,
+    owf_shortcut_hint = owf_label(sidebar, @"", NSMakeRect(28, 203, 184, 56), owf_caption_size,
                                   NSFontWeightRegular, NSColor.secondaryLabelColor);
     owf_update_shortcut();
     // The last line ends on the same baseline as the body's last line.
     CGFloat privacy = owf_label_above(sidebar, @"Offline transcription.\nYour voice stays here.", 28, 32, 184) + 8;
-    owf_symbol(sidebar, @"lock.shield", NSMakeRect(28, privacy, 18, 20), owf_accent());
-    owf_label(sidebar, @"On your Mac", NSMakeRect(54, privacy, 155, 20), 12, NSFontWeightSemibold, NSColor.labelColor);
+    NSTextField *privacyTitle = owf_label(sidebar, @"On your Mac", NSMakeRect(54, privacy, 155, 20),
+                                          owf_caption_size, NSFontWeightSemibold, NSColor.labelColor);
+    owf_label_symbol(sidebar, @"lock.shield", 28, privacyTitle, owf_accent());
 
     NSView *body = [[[NSView alloc] initWithFrame:NSMakeRect(260, 0, 508, owf_settings_height)] autorelease];
     [root addSubview:body];
-    NSTextField *title = owf_label(body, @"Settings", NSMakeRect(0, 558, 508, 43), 30, NSFontWeightSemibold, NSColor.labelColor);
+    owf_label(body, @"Settings", NSMakeRect(0, 563, 508, 38), 26, NSFontWeightSemibold, NSColor.labelColor);
 
-    // General and Corrections share the space under the title; the tabs sit
-    // on the title's line, right aligned.
+    // Navigation gets its own row, so localized titles and counts cannot collide.
     owf_tabs = [NSSegmentedControl segmentedControlWithLabels:@[owf_text(@"General"), owf_text(@"Corrections")]
                                                  trackingMode:NSSegmentSwitchTrackingSelectOne
                                                        target:owf_settings action:@selector(tabChanged:)];
-    owf_tabs.selectedSegmentBezelColor = [NSColor colorWithSRGBRed:0.50 green:0.30 blue:0.93 alpha:1];
-    [owf_tabs setWidth:96 forSegment:0];
-    [owf_tabs setWidth:132 forSegment:1];
-    [owf_tabs sizeToFit];
-    [owf_tabs setFrameOrigin:NSMakePoint(508 - NSWidth(owf_tabs.frame), 566)];
-    // The title is selectable text; kept clear of the tabs, it shows no text cursor over them.
-    [title setFrameSize:NSMakeSize(NSMinX(owf_tabs.frame) - 12, NSHeight(title.frame))];
+    owf_tabs.font = [NSFont systemFontOfSize:owf_body_size];
+    owf_tabs.segmentStyle = NSSegmentStyleRounded;
+    owf_tabs.selectedSegmentBezelColor = [NSColor colorWithWhite:0.40 alpha:1];
+    owf_tabs.frame = NSMakeRect(-5.5, 514, 519, 32);
+    [owf_tabs setWidth:253.5 forSegment:0];
+    [owf_tabs setWidth:253.5 forSegment:1];
+    [owf_tabs setAccessibilityLabel:owf_text(@"Settings")];
     owf_tabs.selectedSegment = owf_settings_tab;
 
     owf_general_view = [[[NSView alloc] initWithFrame:body.bounds] autorelease];
@@ -796,27 +843,33 @@ static NSView *owf_settings_content(void) {
     [body addSubview:owf_corrections_view];
     // Above both tabs' views, which span the body and would take its clicks.
     [body addSubview:owf_tabs];
-    owf_symbol(general, @"checkmark.circle", NSMakeRect(0, 535, 16, 16), owf_accent());
-    owf_label(general, @"Changes saved automatically", NSMakeRect(22, 528, 486, 24), 13, NSFontWeightRegular,
-              NSColor.secondaryLabelColor);
-    owf_label(general, @"Dictation", NSMakeRect(0, 479, 508, 23), 13, NSFontWeightSemibold, NSColor.labelColor);
-    NSSegmentedControl *mode = [NSSegmentedControl segmentedControlWithLabels:@[owf_text(@"Double press"), owf_text(@"Press and hold")]
-                                                               trackingMode:NSSegmentSwitchTrackingSelectOne
-                                                                     target:owf_settings action:@selector(modeChanged:)];
-    // The bezel is inset 5.5 points; widen the frame so it spans the card below exactly.
-    mode.frame = NSMakeRect(-5.5, 431, 519, 38);
-    mode.segmentStyle = NSSegmentStyleRounded;
-    // A mid violet keeps the white label readable in both appearances.
-    mode.selectedSegmentBezelColor = [NSColor colorWithSRGBRed:0.50 green:0.30 blue:0.93 alpha:1];
-    mode.controlSize = NSControlSizeLarge;
-    mode.selectedSegment = owf_settings_fn_hold() ? 1 : 0;
-    [mode setWidth:253.5 forSegment:0];
-    [mode setWidth:253.5 forSegment:1];
-    [mode setAccessibilityLabel:owf_text(@"Dictation")];
-    [general addSubview:mode];
+    NSTextField *saved = owf_label(general, @"Changes saved automatically", NSMakeRect(24, 13, 484, 18),
+                                    owf_caption_size, NSFontWeightRegular, NSColor.secondaryLabelColor);
+    owf_label_symbol(general, @"checkmark.circle", 0, saved, NSColor.secondaryLabelColor);
 
-    OWFSurface *options = [[[OWFSurface alloc] initWithFrame:NSMakeRect(0, 223, 508, 192)] autorelease];
+    // Dictation is a preference, not navigation: native radios share the other settings' card.
+    OWFSurface *options = [[[OWFSurface alloc] initWithFrame:NSMakeRect(0, 223, 508, 268)] autorelease];
     [general addSubview:options];
+    owf_symbol(options, @"keyboard", NSMakeRect(17, 223, 22, 22), owf_accent());
+    owf_label(options, @"Dictation", NSMakeRect(52, 235, 249, 19), owf_body_size, NSFontWeightMedium, NSColor.labelColor);
+    owf_label(options, @"Fn key behavior", NSMakeRect(52, 214, 249, 18), owf_caption_size,
+              NSFontWeightRegular, NSColor.secondaryLabelColor);
+    NSArray *modeTitles = @[owf_text(@"Double press"), owf_text(@"Press and hold")];
+    for (NSInteger i = 0; i < 2; i++) {
+        NSButton *mode = [NSButton radioButtonWithTitle:modeTitles[i] target:owf_settings action:@selector(modeChanged:)];
+        mode.tag = i;
+        mode.frame = NSMakeRect(306, 236 - i * 28, 184, 24);
+        mode.font = [NSFont systemFontOfSize:owf_body_size];
+        mode.contentTintColor = owf_accent();
+        mode.attributedTitle = [[[NSAttributedString alloc] initWithString:modeTitles[i]
+            attributes:@{NSFontAttributeName: mode.font, NSForegroundColorAttributeName: NSColor.labelColor}] autorelease];
+        mode.state = owf_settings_fn_hold() == i ? NSControlStateValueOn : NSControlStateValueOff;
+        [options addSubview:mode];
+        owf_modes[i] = mode;
+    }
+    NSBox *modeDivider = [[[NSBox alloc] initWithFrame:NSMakeRect(52, 192, 438, 1)] autorelease];
+    modeDivider.boxType = NSBoxSeparator;
+    [options addSubview:modeDivider];
     NSString *titles[] = {@"Sounds", @"Speech language", @"Interface language"};
     NSString *hints[] = {@"Start and stop cues", @"Language you dictate in", @"Make yourself at home"};
     NSString *icons[] = {@"speaker.wave.2", @"waveform", @"character.bubble"};
@@ -828,10 +881,10 @@ static NSView *owf_settings_content(void) {
     for (int i = 0; i < 3; i++) {
         CGFloat y = 128 - i * 64;
         owf_symbol(options, icons[i], NSMakeRect(17, y + 21, 22, 22), owf_accent());
-        owf_label(options, titles[i], NSMakeRect(52, y + 32, 249, 19), 13, NSFontWeightMedium, NSColor.labelColor);
-        owf_label(options, hints[i], NSMakeRect(52, y + 12, 249, 18), 11, NSFontWeightRegular, NSColor.secondaryLabelColor);
+        owf_label(options, titles[i], NSMakeRect(52, y + 33, 249, 19), owf_body_size, NSFontWeightMedium, NSColor.labelColor);
+        owf_label(options, hints[i], NSMakeRect(52, y + 12, 249, 18), owf_caption_size, NSFontWeightRegular, NSColor.secondaryLabelColor);
         popups[i].frame = NSMakeRect(306, y + 19, i == 0 ? 143 : 184, 28);
-        popups[i].font = [NSFont systemFontOfSize:12];
+        popups[i].font = [NSFont systemFontOfSize:owf_body_size];
         [popups[i] setAccessibilityLabel:owf_text(titles[i])];
         [options addSubview:popups[i]];
         if (i > 0) {
@@ -848,10 +901,10 @@ static NSView *owf_settings_content(void) {
     [preview setAccessibilityLabel:owf_text(@"Preview sound")];
     [options addSubview:preview];
 
-    owf_label(general, @"Vocabulary", NSMakeRect(0, 184, 508, 23), 13, NSFontWeightSemibold, NSColor.labelColor);
-    owf_label(general, @"Names and terms, one per line or separated by commas.", NSMakeRect(0, 157, 508, 23),
-              12, NSFontWeightRegular, NSColor.secondaryLabelColor);
-    CGFloat editorBottom = owf_label_above(general, @"Keep it short: only the last ~200 tokens are used.", 0, 32, 508) + 8;
+    owf_label(general, @"Vocabulary", NSMakeRect(0, 185, 508, 23), owf_body_size, NSFontWeightSemibold, NSColor.labelColor);
+    owf_label(general, @"Names and terms, one per line or separated by commas.", NSMakeRect(0, 161, 508, 20),
+              owf_caption_size, NSFontWeightRegular, NSColor.secondaryLabelColor);
+    CGFloat editorBottom = owf_label_above(general, @"Keep it short: only the last ~200 tokens are used.", 0, 43, 508) + 8;
     OWFSurface *editor = [[[OWFSurface alloc] initWithFrame:NSMakeRect(0, editorBottom, 508, 153 - editorBottom)] autorelease];
     [general addSubview:editor];
     NSScrollView *scroll = [NSTextView scrollableTextView];
@@ -862,7 +915,10 @@ static NSView *owf_settings_content(void) {
     owf_vocabulary_view = scroll.documentView;
     owf_vocabulary_view.richText = NO;
     owf_vocabulary_view.drawsBackground = NO;
-    owf_vocabulary_view.font = [NSFont systemFontOfSize:13];
+    owf_vocabulary_view.font = [NSFont systemFontOfSize:owf_body_size];
+    NSMutableParagraphStyle *vocabularyStyle = [[[NSMutableParagraphStyle alloc] init] autorelease];
+    vocabularyStyle.lineSpacing = 3;
+    owf_vocabulary_view.defaultParagraphStyle = vocabularyStyle;
     owf_vocabulary_view.textColor = NSColor.labelColor;
     owf_vocabulary_view.insertionPointColor = owf_accent();
     owf_vocabulary_view.textContainerInset = NSMakeSize(7, 7);
