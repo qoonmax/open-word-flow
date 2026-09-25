@@ -58,6 +58,12 @@ func (t *Transcriber) Close() error {
 // whisper treats as speech preceding the recording, which biases spelling and
 // vocabulary toward it.
 func (t *Transcriber) Transcribe(samples []float32, language, prompt string) ([]Segment, error) {
+	// The whisper binding crashes on an empty recording, such as one stopped
+	// before the microphone delivered any audio.
+	if len(samples) == 0 {
+		return nil, nil
+	}
+
 	ctx, err := t.model.NewContext()
 	if err != nil {
 		return nil, fmt.Errorf("new context: %w", err)
