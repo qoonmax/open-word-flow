@@ -12,6 +12,7 @@ import "C"
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 	"unsafe"
 )
@@ -38,7 +39,10 @@ var stopLevels chan struct{}
 func Run(ctx context.Context) {
 	for id, s := range sounds {
 		cID := C.CString(id)
-		C.owf_ui_add_sound(cID, unsafe.Pointer(&s.start[0]), C.int(len(s.start)), unsafe.Pointer(&s.stop[0]), C.int(len(s.stop)))
+		C.owf_ui_add_sound(cID,
+			unsafe.Pointer(&s.start[0]), C.int(len(s.start)),
+			unsafe.Pointer(&s.stop[0]), C.int(len(s.stop)),
+			unsafe.Pointer(&s.correct[0]), C.int(len(s.correct)))
 		C.free(unsafe.Pointer(cID))
 	}
 
@@ -71,7 +75,7 @@ func LoadPreferences() Preferences {
 // level, which reports the microphone input level in [0, 1].
 func Show(level func() float64) {
 	stopLevelUpdates()
-	C.owf_ui_chime(1)
+	C.owf_ui_chime(C.owf_chime_start)
 	C.owf_ui_show()
 
 	stop := make(chan struct{})
@@ -96,8 +100,50 @@ func Show(level func() float64) {
 // running, until Hide.
 func Processing() {
 	stopLevelUpdates()
-	C.owf_ui_chime(0)
+	C.owf_ui_chime(C.owf_chime_stop)
 	C.owf_ui_processing()
+}
+
+// Correcting chimes and shows that a correction is being saved, unless the
+// indicator is showing a recording.
+func Correcting() {
+	C.owf_ui_chime(C.owf_chime_correct)
+	C.owf_ui_correcting()
+}
+
+// Corrected shows that correction number was saved, with the words of heard
+// that fixed corrected, then hides the indicator.
+func Corrected(number int, heard, fixed string) {
+	cSegments := segmentsJSON(heard, fixed)
+	defer C.free(unsafe.Pointer(cSegments))
+
+	C.owf_ui_corrected(C.int(number), cSegments)
+}
+
+// SetCorrectionsFile tells Settings where the corrections it lists are kept.
+// Call it before Run.
+func SetCorrectionsFile(path string) {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+
+	C.owf_settings_set_corrections_file(cPath)
+}
+
+// segmentsJSON returns diff of heard and fixed as a JSON array in C memory;
+// the caller frees it.
+func segmentsJSON(heard, fixed string) *C.char {
+	data, _ := json.Marshal(diff(heard, fixed)) // strings and ints always marshal
+
+	return C.CString(string(data))
+}
+
+// NotCorrected shows that no correction was saved and why, then hides the
+// indicator. reason is English; the indicator translates it.
+func NotCorrected(reason string) {
+	cReason := C.CString(reason)
+	defer C.free(unsafe.Pointer(cReason))
+
+	C.owf_ui_not_corrected(cReason)
 }
 
 // Hide collapses the indicator back into the notch.
@@ -117,4 +163,11 @@ func takeString(value *C.char) string {
 	defer C.free(unsafe.Pointer(value))
 
 	return C.GoString(value)
+}
+
+// owfSegmentsJSON is segmentsJSON for Settings, which lists corrections.
+//
+//export owfSegmentsJSON
+func owfSegmentsJSON(heard, fixed *C.char) *C.char {
+	return segmentsJSON(C.GoString(heard), C.GoString(fixed))
 }

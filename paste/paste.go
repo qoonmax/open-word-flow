@@ -1,4 +1,5 @@
-// Package paste inserts text into the focused macOS application.
+// Package paste inserts text into the focused macOS application and reads its
+// selection.
 package paste
 
 /*
@@ -18,6 +19,9 @@ import (
 // Cmd+V before the previous contents are put back. Raise it if slow apps paste
 // the old clipboard instead of the transcript.
 const restoreDelay = 500 * time.Millisecond
+
+// copyTimeout is how long Selection waits for the application to answer Cmd+C.
+const copyTimeout = 500 * time.Millisecond
 
 var errCopy = errors.New("copy transcript to clipboard")
 
@@ -54,7 +58,7 @@ func Text(text string) error {
 		return errCopy
 	}
 
-	if C.owf_send_paste() != 1 {
+	if C.owf_send_command(C.owf_key_v) != 1 {
 		return errors.New("transcript copied to clipboard, but sending Cmd+V failed")
 	}
 
@@ -66,4 +70,48 @@ func Text(text string) error {
 	}
 
 	return nil
+}
+
+// Selection copies the selection of the focused application with Cmd+C and
+// returns it, then restores the previous clipboard contents. It returns ""
+// when nothing was copied, such as when no text is selected.
+func Selection() (string, error) {
+	if C.owf_accessibility_trusted(0) != 1 {
+		return "", errors.New(
+			"reading the selection needs Accessibility access; enable it in System Settings > Privacy & Security > Accessibility",
+		)
+	}
+
+	saved := C.owf_clipboard_save()
+	defer C.owf_clipboard_release(saved)
+
+	before := C.owf_clipboard_change_count()
+
+	if C.owf_send_command(C.owf_key_c) != 1 {
+		return "", errors.New("send Cmd+C")
+	}
+
+	var text *C.char
+
+	// The change count moves as soon as the app clears the clipboard, which may
+	// be a moment before the text is written.
+	for deadline := time.Now().Add(copyTimeout); text == nil && time.Now().Before(deadline); {
+		time.Sleep(10 * time.Millisecond)
+
+		if C.owf_clipboard_change_count() != before {
+			text = C.owf_clipboard_text()
+		}
+	}
+
+	if C.owf_clipboard_change_count() != before {
+		C.owf_clipboard_restore(saved)
+	}
+
+	if text == nil {
+		return "", nil
+	}
+
+	defer C.free(unsafe.Pointer(text))
+
+	return C.GoString(text), nil
 }

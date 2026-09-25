@@ -20,6 +20,13 @@ linters:
       default: default
       enable:
         - after-block
+  exclusions:
+    rules:
+      # cgo declares variables after each //export function, past the end of the source.
+      - path: ui/ui.go
+        linters:
+          - decorder
+        text: "var must not be placed after func"
 
 formatters:
   enable:

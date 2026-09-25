@@ -63,6 +63,10 @@ func run() error {
 		fmt.Println("Accessibility access is not granted yet: transcripts will only be copied to the clipboard.")
 	}
 
+	if path, err := correctionsFile(); err == nil {
+		ui.SetCorrectionsFile(path)
+	}
+
 	controller := recording.NewController(recorder)
 	listener := hotkey.NewListener()
 
@@ -75,6 +79,13 @@ func run() error {
 
 	go func() {
 		holdFn := func() bool { return ui.LoadPreferences().HoldFn }
+
+		// The last transcripts, oldest first, that a correction can refer to,
+		// and the last saved pair. Only this goroutine touches them.
+		var (
+			heard []string
+			saved [2]string
+		)
 
 		listenDone <- listener.Run(ctx, holdFn, func() error {
 			event, toggleErr := controller.Toggle()
@@ -92,14 +103,22 @@ func run() error {
 			ui.Processing()
 			fmt.Printf("Recording stopped. Saved: %s\n", event.Path)
 
-			if dictateErr := dictate(transcriber, event.Path); dictateErr != nil {
+			text, dictateErr := dictate(transcriber, event.Path)
+			if dictateErr != nil {
 				fmt.Fprintln(os.Stderr, "error:", dictateErr)
+			}
+
+			if text != "" {
+				heard = append(heard, text)
+				if len(heard) > recentTranscripts {
+					heard = heard[1:]
+				}
 			}
 
 			ui.Hide()
 
 			return nil
-		})
+		}, func() { correct(heard, &saved) })
 
 		// Also ends the UI loop when the listener fails.
 		stop()
@@ -121,18 +140,19 @@ func run() error {
 	return listenErr
 }
 
-// dictate transcribes the recording at path and pastes the text into the focused app.
-func dictate(transcriber *asr.Transcriber, path string) error {
+// dictate transcribes the recording at path, pastes the text into the focused
+// app, and returns it, or "" when no speech was recognized.
+func dictate(transcriber *asr.Transcriber, path string) (string, error) {
 	samples, err := asr.LoadWAV(path)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	prefs := ui.LoadPreferences()
 
 	segments, err := transcriber.Transcribe(samples, prefs.Language, prompt(prefs.Vocabulary))
 	if err != nil {
-		return fmt.Errorf("transcribe %s: %w", path, err)
+		return "", fmt.Errorf("transcribe %s: %w", path, err)
 	}
 
 	parts := make([]string, 0, len(segments))
@@ -145,13 +165,13 @@ func dictate(transcriber *asr.Transcriber, path string) error {
 	if len(parts) == 0 {
 		fmt.Println("No speech recognized.")
 
-		return nil
+		return "", nil
 	}
 
 	text := strings.Join(parts, " ")
 	fmt.Println("Transcript:", text)
 
-	return paste.Text(text)
+	return text, paste.Text(text)
 }
 
 // modelsDir returns Contents/Resources/models inside the app bundle, or

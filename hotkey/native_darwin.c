@@ -31,10 +31,12 @@ static CGEventRef owf_fn_callback(
     case kCGEventFlagsChanged:
         if (CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode) != owf_key_fn) {
             listener->event = owf_event_other_key;
-        } else if ((CGEventGetFlags(event) & kCGEventFlagMaskSecondaryFn) != 0) {
-            listener->event = owf_event_fn_down;
-        } else {
+        } else if ((CGEventGetFlags(event) & kCGEventFlagMaskSecondaryFn) == 0) {
             listener->event = owf_event_fn_up;
+        } else if ((CGEventGetFlags(event) & kCGEventFlagMaskControl) != 0) {
+            listener->event = owf_event_control_fn_down;
+        } else {
+            listener->event = owf_event_fn_down;
         }
         break;
     default:

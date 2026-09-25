@@ -72,3 +72,10 @@ whisper:
 
 clean:
 	rm -rf bin build
+
+# Native visual/interaction smoke check; runs in a logged-in macOS desktop session.
+.PHONY: ui-check
+ui-check:
+	mkdir -p /tmp/owf-ui-check
+	clang -fblocks -Wall -Wno-deprecated-declarations ui/testdata/preview.m -framework AppKit -framework QuartzCore -framework CoreImage -o /tmp/owf-ui-check/owf-ui-preview
+	/tmp/owf-ui-check/owf-ui-preview

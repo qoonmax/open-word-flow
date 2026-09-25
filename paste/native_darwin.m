@@ -1,10 +1,9 @@
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 
-#include "native_darwin.h"
+#include <string.h>
 
-// Virtual key code of the V key (kVK_ANSI_V); Cmd+V resolves to Paste on any layout.
-static const CGKeyCode owf_key_v = 9;
+#include "native_darwin.h"
 
 int owf_accessibility_trusted(int prompt) {
     @autoreleasepool {
@@ -29,6 +28,14 @@ long owf_clipboard_set(const char *text) {
         }
 
         return (long)[pasteboard changeCount];
+    }
+}
+
+// Returns the clipboard text as a malloc'd UTF-8 string, or NULL when it holds none.
+char *owf_clipboard_text(void) {
+    @autoreleasepool {
+        NSString *value = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+        return value == nil ? NULL : strdup(value.UTF8String);
     }
 }
 
@@ -71,10 +78,10 @@ void owf_clipboard_release(void *snapshot) {
     [(NSArray *)snapshot release];
 }
 
-int owf_send_paste(void) {
+int owf_send_command(int key) {
     CGEventSourceRef source = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
-    CGEventRef down = CGEventCreateKeyboardEvent(source, owf_key_v, true);
-    CGEventRef up = CGEventCreateKeyboardEvent(source, owf_key_v, false);
+    CGEventRef down = CGEventCreateKeyboardEvent(source, (CGKeyCode)key, true);
+    CGEventRef up = CGEventCreateKeyboardEvent(source, (CGKeyCode)key, false);
     int ok = down != NULL && up != NULL;
 
     if (ok) {

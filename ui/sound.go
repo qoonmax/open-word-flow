@@ -20,9 +20,10 @@ type (
 		at, freq, bend float64
 	}
 
-	// sound is the pair of chimes that marks the start and stop of a recording.
+	// sound is the set of chimes that marks the start and stop of a recording
+	// and a press of Control+Fn.
 	sound struct {
-		start, stop []byte
+		start, stop, correct []byte
 	}
 )
 
@@ -48,21 +49,24 @@ var (
 	glow  = voice{attack: 0.015, decay: 0.16, overtone: 0.1}
 
 	// sounds are the chime sets offered in Settings, by ID: soft and low, meant
-	// to stay pleasant after hundreds of plays a day. Start rises and stop falls,
-	// so the two are told apart by ear.
+	// to stay pleasant after hundreds of plays a day. Start rises, stop falls,
+	// and correct repeats one note, so the three are told apart by ear.
 	sounds = map[string]sound{
 		"glass": {
 			chime(glass, tone{0, g4, 0}, tone{0.07, d5, 0}),
 			chime(glass, tone{0, d5, 0}, tone{0.07, b4, 0}),
+			chime(glass, tone{0, d5, 0}, tone{0.1, d5, 0}),
 		},
 		"pulse": {
 			chime(pulse, tone{0, d5, -5}),
 			chime(pulse, tone{0, g4, 7}),
+			chime(pulse, tone{0, d5, 0}, tone{0.09, d5, 0}),
 		},
 		// G major rolled up, G minor rolled down.
 		"glow": {
 			chime(glow, tone{0, g4, 0}, tone{0.045, b4, 0}, tone{0.09, d5, 0}),
 			chime(glow, tone{0, d5, 0}, tone{0.045, bb4, 0}, tone{0.09, g4, 0}),
+			chime(glow, tone{0, d5, 0}, tone{0.12, d5, 0}),
 		},
 	}
 )

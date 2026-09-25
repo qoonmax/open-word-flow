@@ -10,7 +10,7 @@ import (
 
 func TestChimes(t *testing.T) {
 	for id, s := range sounds {
-		for _, chime := range [][]byte{s.start, s.stop} {
+		for _, chime := range [][]byte{s.start, s.stop, s.correct} {
 			dec := wav.NewDecoder(bytes.NewReader(chime))
 
 			buf, err := dec.FullPCMBuffer()

@@ -50,12 +50,40 @@ whisper reads the vocabulary as text spoken right before the recording, which
 favors those spellings. Changes apply to the next recording. **Quit** finishes
 an active recording without transcribing it.
 
-While recording, a black island grows out of the MacBook notch, continuing
-it, with a red dot and a timer left of the camera and a gradient voice wave
-right of it. A Siri-like glow lights the island from behind and swells as you
-speak. After you stop, the wave rolls and the glow breathes while whisper
-transcribes; the island folds back into the notch once the text is pasted. On
-a screen without a notch it grows from the top center.
+To collect recognition errors, fix a pasted transcript, select the corrected
+text, hold Control, and press Fn, in either Dictation mode. The app copies the
+selection, pairs it with the most similar of the last ten transcripts, and
+appends both as a JSON line to
+`~/Library/Application Support/Open Word Flow/corrections.jsonl`, skipping a
+pair it has just saved. Each press plays the correction chime of the chosen
+sound, and the island widens and grows a row under the notch: while it saves,
+it reads "Saving…"; then it shows the number of the correction and the
+corrected words in context, with the misheard ones struck through. When
+nothing is saved, the row says why: nothing was dictated or selected, the selection was unchanged, or it
+resembled no recent transcript. Transcripts are kept only in memory until then,
+so they are gone after a restart. The **Corrections** tab in Settings lists the
+saved pairs, newest first, with the corrected words marked; each can be edited
+or deleted, **Clear All…** deletes them all, and **Show File** reveals
+`corrections.jsonl` in Finder.
+
+While recording, a graphite island expands from the MacBook notch, with a
+coral recording light, a timer, and a multicolor waveform that responds to your
+voice. A soft blue, violet, rose, and amber glow traces its silhouette. On
+displays without a notch, it appears as a floating capsule. While transcribing,
+the light turns silver, the timer stops and dims, and a traveling wave signals
+processing. The island folds away when the text is pasted, without taking focus.
+
+Settings share the island's look: the same spectrum colors the logo, and the
+fn key in the shortcut guide is island black with the same glow. They follow
+the macOS light or dark appearance, with a shortcut guide,
+a sound preview button, and an automatically saved vocabulary. Both surfaces
+reduce ambient motion and bounce under Reduce Motion while retaining a brief,
+smooth island reveal; the sidebar also respects Reduce Transparency.
+
+To check the native interface without loading models, recording audio, or
+pasting text, run `make ui-check` from a logged-in macOS desktop session. This
+uses separate preview preferences, checks controls and recording transitions,
+and writes light/dark English/Russian snapshots to `/tmp/owf-ui-check`.
 
 ## macOS Fn settings
 

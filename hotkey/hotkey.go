@@ -1,5 +1,6 @@
 // Package hotkey starts and stops recording with the macOS Fn (Globe) key:
 // a double press toggles it, or in hold mode it lasts while Fn is held.
+// Control+Fn reports a corrected transcript in either mode.
 package hotkey
 
 /*
@@ -37,10 +38,11 @@ func NewListener() *Listener {
 	return &Listener{}
 }
 
-// Run listens for Fn until the context is canceled and invokes callback each
+// Run listens for Fn until the context is canceled and invokes toggle each
 // time recording should start or stop; calls alternate, starting with a start.
-// hold, checked on every Fn event, reports whether hold mode is on.
-func (l *Listener) Run(ctx context.Context, hold func() bool, callback func() error) error {
+// hold, checked on every Fn event, reports whether hold mode is on. Pressing
+// Fn while holding Control invokes correct instead.
+func (l *Listener) Run(ctx context.Context, hold func() bool, toggle func() error, correct func()) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -75,13 +77,17 @@ func (l *Listener) Run(ctx context.Context, hold func() bool, callback func() er
 			switched = fn.press(time.Now(), hold())
 		case C.owf_event_fn_up:
 			switched = fn.release(hold())
+		case C.owf_event_control_fn_down:
+			// Not the first press of a double press either.
+			fn.reset()
+			correct()
 		}
 
 		if !switched {
 			continue
 		}
 
-		if err := callback(); err != nil {
+		if err := toggle(); err != nil {
 			return err
 		}
 	}
