@@ -36,6 +36,12 @@ var stopLevels chan struct{}
 // main thread: call Run from the main goroutine locked with
 // runtime.LockOSThread in an init function.
 func Run(ctx context.Context) {
+	for id, s := range sounds {
+		cID := C.CString(id)
+		C.owf_ui_add_sound(cID, unsafe.Pointer(&s.start[0]), C.int(len(s.start)), unsafe.Pointer(&s.stop[0]), C.int(len(s.stop)))
+		C.free(unsafe.Pointer(cID))
+	}
+
 	go func() {
 		<-ctx.Done()
 		C.owf_ui_stop()
@@ -61,10 +67,11 @@ func LoadPreferences() Preferences {
 	}
 }
 
-// Show expands the indicator out of the notch and animates it with level,
-// which reports the microphone input level in [0, 1].
+// Show chimes, expands the indicator out of the notch and animates it with
+// level, which reports the microphone input level in [0, 1].
 func Show(level func() float64) {
 	stopLevelUpdates()
+	C.owf_ui_chime(1)
 	C.owf_ui_show()
 
 	stop := make(chan struct{})
@@ -85,10 +92,11 @@ func Show(level func() float64) {
 	}()
 }
 
-// Processing shows that recording has stopped and transcription is running,
-// until Hide.
+// Processing chimes and shows that recording has stopped and transcription is
+// running, until Hide.
 func Processing() {
 	stopLevelUpdates()
+	C.owf_ui_chime(0)
 	C.owf_ui_processing()
 }
 

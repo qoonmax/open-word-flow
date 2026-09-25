@@ -8,14 +8,24 @@ static NSString *const owf_language_key = @"language";
 static NSString *const owf_interface_language_key = @"interfaceLanguage";
 static NSString *const owf_vocabulary_key = @"vocabulary";
 static NSString *const owf_fn_mode_key = @"fnMode";
+static NSString *const owf_sound_key = @"sound";
 static NSString *const owf_default_language = @"auto";
 static NSString *const owf_system_language = @"system";
 static NSString *const owf_fn_double = @"double";
 static NSString *const owf_fn_hold = @"hold";
+static NSString *const owf_default_sound = @"glass";
 
 static NSString *const owf_fn_modes[][2] = {
     {@"double", @"Double-press Fn to start and stop"},
     {@"hold", @"Hold Fn while speaking"},
+};
+
+// IDs match the sounds in sound.go; any other ID is silent.
+static NSString *const owf_sounds[][2] = {
+    {@"glass", @"Glass"},
+    {@"pulse", @"Pulse"},
+    {@"glow", @"Glow"},
+    {@"off", @"Off"},
 };
 
 // Whisper language codes offered in Settings; "auto" detects the language of each recording.
@@ -51,6 +61,10 @@ static void owf_settings_reload(void);
     [NSUserDefaults.standardUserDefaults setObject:sender.selectedItem.representedObject
                                             forKey:sender.identifier];
 
+    if ([sender.identifier isEqualToString:owf_sound_key]) {
+        owf_sound_preview(sender.selectedItem.representedObject);
+    }
+
     // The menu hint follows both the interface language and the Fn mode.
     owf_status_menu_reload();
 
@@ -85,6 +99,11 @@ static NSDictionary<NSString *, NSString *> *owf_russian(void) {
             @"Dictation:": @"Диктовка:",
             @"Double-press Fn to start and stop": @"Двойное нажатие Fn — старт и стоп",
             @"Hold Fn while speaking": @"Удерживать Fn во время речи",
+            @"Sounds:": @"Звуки:",
+            @"Glass": @"Стекло",
+            @"Pulse": @"Импульс",
+            @"Glow": @"Сияние",
+            @"Off": @"Выключены",
             @"Settings…": @"Настройки…",
             @"Quit Open Word Flow": @"Завершить Open Word Flow",
             @"Open Word Flow stopped": @"Open Word Flow остановлен",
@@ -162,6 +181,10 @@ static NSGridView *owf_options_grid(void) {
                 owf_fn_mode_key,
                 owf_fn_double
             ),
+        ],
+        @[
+            owf_form_label(owf_text(@"Sounds:")),
+            owf_popup(owf_sounds, sizeof(owf_sounds) / sizeof(owf_sounds[0]), owf_sound_key, owf_default_sound),
         ],
         @[
             owf_form_label(owf_text(@"Speech language:")),
@@ -295,4 +318,8 @@ int owf_settings_fn_hold(void) {
     @autoreleasepool {
         return [owf_setting(owf_fn_mode_key, owf_fn_double) isEqualToString:owf_fn_hold];
     }
+}
+
+NSString *owf_settings_sound(void) {
+    return owf_setting(owf_sound_key, owf_default_sound);
 }
