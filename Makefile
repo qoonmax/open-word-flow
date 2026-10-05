@@ -20,13 +20,38 @@ MODELS := models/ggml-large-v3-turbo-q5_0.bin models/ggml-silero-v6.2.0.bin
 SIGN_IDENTITY ?= Apple Development
 GOFMT_PATHS := main.go asr config hotkey paste recording ui
 
-.PHONY: build app install run fmt-check vet test lint check quality whisper clean
+.PHONY: setup models build app install run fmt-check vet test lint check quality whisper clean
+
+# First launch from a fresh clone. Command-line SIGN_IDENTITY overrides this.
+setup: SIGN_IDENTITY = -
+setup:
+	@command -v go >/dev/null && command -v cmake >/dev/null && xcode-select -p >/dev/null 2>&1 || { \
+		echo "Install Xcode Command Line Tools (xcode-select --install), Go 1.26+, and CMake first."; \
+		exit 1; \
+	}
+	git submodule update --init --recursive
+	$(MAKE) whisper
+	$(MAKE) models
+	$(MAKE) run SIGN_IDENTITY="$(SIGN_IDENTITY)"
+
+models: $(MODELS)
+
+# Download to a temporary file so interrupted downloads are safe to retry.
+models/ggml-large-v3-turbo-q5_0.bin:
+	mkdir -p models
+	curl --fail --location --retry 5 --output "$@.tmp" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
+	mv "$@.tmp" "$@"
+
+models/ggml-silero-v6.2.0.bin:
+	mkdir -p models
+	curl --fail --location --retry 5 --output "$@.tmp" https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
+	mv "$@.tmp" "$@"
 
 build:
 	go build $(GO_LDFLAGS) -o bin/open-word-flow .
 
 # Bundles the binary and the models (APFS clones, no extra disk space) into a macOS app.
-app: build
+app: build models
 	rm -rf "$(APP)"
 	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources/models"
 	cp Info.plist "$(APP)/Contents/Info.plist"

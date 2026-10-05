@@ -13,12 +13,25 @@ Tools, and CMake. whisper.cpp is a git submodule, built as static libraries
 under `third_party/whisper.cpp/build_go`:
 
 ```sh
-git submodule update --init
-make whisper
-third_party/whisper.cpp/models/download-ggml-model.sh large-v3-turbo-q5_0 models
-third_party/whisper.cpp/models/download-vad-model.sh silero-v6.2.0 models
-make app
+make setup
 ```
+
+`make setup` initializes the submodule, builds whisper.cpp, downloads both
+models, and builds and opens the app. Install Go 1.26 or later, CMake, and
+Xcode Command Line Tools (`xcode-select --install`) beforehand; with Homebrew,
+Go and CMake can be installed using `brew install go cmake`. Setup uses ad-hoc
+signing by default; use `make setup SIGN_IDENTITY="Apple Development"` if you
+have a development certificate. Allow Microphone and Accessibility on first
+launch, and configure Fn as described below.
+
+After changing application code, quit the running app and use
+`make run SIGN_IDENTITY=-` to rebuild and open it, or
+`make install SIGN_IDENTITY=-` to rebuild and copy it to `/Applications`.
+With a development certificate, omit `SIGN_IDENTITY=-`. Models are downloaded
+only when missing, including during `make app`, `make run`, or `make install`.
+Run `make setup` again after changing the whisper.cpp submodule or cleaning its
+build directory. `make build` produces only the bare executable; use
+`make app` for the complete app bundle.
 
 `make app` builds `build/Open Word Flow.app` with both models inside and signs
 it with your `Apple Development` certificate, so macOS keeps its permissions
