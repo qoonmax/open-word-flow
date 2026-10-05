@@ -14,13 +14,14 @@ EXT_LDFLAGS := -framework Foundation -framework Metal -framework MetalKit -lggml
 GO_LDFLAGS := -ldflags "-extldflags '$(EXT_LDFLAGS)'"
 GOLANGCI_LINT ?= golangci-lint
 APP := build/Open Word Flow.app
+DMG := build/OpenWordFlow.dmg
 MODELS := models/ggml-large-v3-turbo-q5_0.bin models/ggml-silero-v6.2.0.bin
 # A stable identity keeps macOS permissions across rebuilds; "-" signs ad hoc,
 # which makes macOS forget Accessibility access after every rebuild.
 SIGN_IDENTITY ?= Apple Development
 GOFMT_PATHS := main.go asr config hotkey paste recording ui
 
-.PHONY: setup models build app install run fmt-check vet test lint check quality whisper clean
+.PHONY: setup models build app install run dmg fmt-check vet test lint check quality whisper clean
 
 # First launch from a fresh clone. Command-line SIGN_IDENTITY overrides this.
 setup: SIGN_IDENTITY = -
@@ -50,13 +51,15 @@ models/ggml-silero-v6.2.0.bin:
 build:
 	go build $(GO_LDFLAGS) -o bin/open-word-flow .
 
-# Bundles the binary and the models (APFS clones, no extra disk space) into a macOS app.
+# Bundles the binary, the models (APFS clones, no extra disk space), and the
+# fonts, which macOS loads through ATSApplicationFontsPath, into a macOS app.
 app: build models
 	rm -rf "$(APP)"
-	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources/models"
+	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources/models" "$(APP)/Contents/Resources/Fonts"
 	cp Info.plist "$(APP)/Contents/Info.plist"
 	cp bin/open-word-flow "$(APP)/Contents/MacOS/open-word-flow"
 	cp -c $(MODELS) "$(APP)/Contents/Resources/models/"
+	cp ui/fonts/* "$(APP)/Contents/Resources/Fonts/"
 	codesign --force --sign "$(SIGN_IDENTITY)" "$(APP)"
 
 install: app
@@ -65,6 +68,15 @@ install: app
 
 run: app
 	open "$(APP)"
+
+# A drag-to-Applications disk image for handing the app to other Macs.
+dmg: app
+	rm -rf build/dmg
+	mkdir -p build/dmg
+	cp -Rc "$(APP)" build/dmg/
+	ln -s /Applications build/dmg/Applications
+	hdiutil create -volname "Open Word Flow" -srcfolder build/dmg -ov -format UDZO "$(DMG)"
+	rm -rf build/dmg
 
 fmt-check:
 	@unformatted="$$(gofmt -l $(GOFMT_PATHS))"; \
@@ -102,5 +114,5 @@ clean:
 .PHONY: ui-check
 ui-check:
 	mkdir -p /tmp/owf-ui-check
-	clang -fblocks -Wall -Wno-deprecated-declarations ui/testdata/preview.m -framework AppKit -framework QuartzCore -framework CoreImage -o /tmp/owf-ui-check/owf-ui-preview
+	clang -fblocks -Wall -Wno-deprecated-declarations ui/testdata/preview.m -framework AppKit -framework QuartzCore -framework CoreImage -framework CoreText -o /tmp/owf-ui-check/owf-ui-preview
 	/tmp/owf-ui-check/owf-ui-preview

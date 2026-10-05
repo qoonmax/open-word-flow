@@ -37,7 +37,8 @@ build directory. `make build` produces only the bare executable; use
 it with your `Apple Development` certificate, so macOS keeps its permissions
 across rebuilds. Without a certificate use `make app SIGN_IDENTITY=-`; macOS
 then asks for Accessibility again after every rebuild. `make run` builds and
-opens the app, and `make install` copies it to `/Applications`.
+opens the app, `make install` copies it to `/Applications`, and `make dmg`
+packs it into `build/OpenWordFlow.dmg` for other Macs.
 
 For development logs, run the binary inside the bundle from a terminal:
 
@@ -58,10 +59,22 @@ such as "Thank you."
 
 **Settings…** in the menu bar icon sets the Fn mode, the speech language
 (automatic by default), the interface language (English or Russian, following macOS by
-default; switches immediately), and a vocabulary: names, terms, and English words you often say.
+default; switches immediately), the theme, and a vocabulary: names, terms, and English words you often say.
 whisper reads the vocabulary as text spoken right before the recording, which
 favors those spellings. Changes apply to the next recording. **Quit** finishes
 an active recording without transcribing it.
+
+**Theme** restyles Settings at once and the island from its next appearance.
+Classic, the default, and Soft Spectrum draw layouts A+ and F4+ of the design
+canvas, and Bento its layout F3, each at the canvas's size and coordinates:
+pages chosen in the sidebar, the fn key in a Dictation card, and the
+corrections grouped by day. Classic is dark, in Onest, Unbounded, and
+JetBrains Mono, with soft violet and coral lights behind a black island; Soft
+Spectrum is light, in Manrope and Dela Gothic One, and hangs the island as a
+tilted card under the notch, as Bento does. Terminal keeps rows in one card,
+dark, monospaced, and lime. The fonts are in `ui/fonts` under the SIL Open
+Font License; `make app` bundles them, and the bare binary outside the bundle
+falls back to the system font. Themes are defined in `ui/theme_darwin.m`.
 
 To collect recognition errors, fix a pasted transcript, select the corrected
 text, hold Control, and press Fn, in either Dictation mode. The app copies the
@@ -79,24 +92,22 @@ saved pairs, newest first, with the corrected words marked; each can be edited
 or deleted, **Clear All…** deletes them all, and **Show File** reveals
 `corrections.jsonl` in Finder.
 
-While recording, a graphite island expands from the MacBook notch, with a
+While recording, a black island expands from the MacBook notch, with a
 coral recording light, a timer, and a multicolor waveform that responds to your
-voice. A soft blue, violet, rose, and amber glow traces its silhouette. On
-displays without a notch, it appears as a floating capsule. While transcribing,
-the light turns silver, the timer stops and dims, and a traveling wave signals
-processing. The island folds away when the text is pasted, without taking focus.
-
-Settings share the island's look: the same spectrum colors the logo, and the
-fn key in the shortcut guide is island black with the same glow. They follow
-the macOS light or dark appearance, with a shortcut guide,
-a sound preview button, and an automatically saved vocabulary. Both surfaces
-reduce ambient motion and bounce under Reduce Motion while retaining a brief,
-smooth island reveal; the sidebar also respects Reduce Transparency.
+voice, lit from behind by the theme's colors. On displays without a notch, it
+appears as a floating capsule. While transcribing, it shows that it is working:
+a spinning ring beside "Recognizing" and dots lighting in turn under Classic,
+bouncing beads on a Soft Spectrum or Bento card. The island folds away when the
+text is pasted, without taking focus. Both Settings and the island reduce
+ambient motion and bounce under Reduce Motion while retaining a brief, smooth
+island reveal.
 
 To check the native interface without loading models, recording audio, or
 pasting text, run `make ui-check` from a logged-in macOS desktop session. This
 uses separate preview preferences, checks controls and recording transitions,
-and writes light/dark English/Russian snapshots to `/tmp/owf-ui-check`.
+and writes light/dark English/Russian and per-theme snapshots to `/tmp/owf-ui-check`,
+with `<theme>-general.png` and `<theme>-corrections.png` drawn from the design
+canvas's data to compare with its boards.
 
 ## macOS Fn settings
 

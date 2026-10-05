@@ -4,7 +4,7 @@ package ui
 
 /*
 #cgo darwin CFLAGS: -fblocks
-#cgo darwin LDFLAGS: -framework AppKit -framework CoreImage -framework QuartzCore
+#cgo darwin LDFLAGS: -framework AppKit -framework CoreImage -framework QuartzCore -framework CoreText
 #include "native_darwin.h"
 #include <stdlib.h>
 */
